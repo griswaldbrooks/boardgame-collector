@@ -24,25 +24,32 @@ icons/                  generated PNG icons
 make_icons.py           regenerate icons (needs Pillow)
 ```
 
-## Run locally
+## Live URL
+Deployed via GitHub Pages at:
+
+**https://griswaldbrooks.com/boardgame-collector/**
+
+## Install on your phone (then it works with NO internet / NO signal)
+1. While you have signal, open the live URL above in Chrome on your phone.
+2. Menu (⋮) → **Install app** / **Add to Home screen**.
+3. Open it once from the home screen.
+
+That's it. The service worker has now cached the whole app on your phone, and all
+data is stored locally. Put the phone in airplane mode, go to a venue with no
+Wi-Fi and no cell signal — it still opens and collects emails. CSV export to a
+file / Drive works offline too (emailing the file just sends once you're back
+online).
+
+## Run / develop locally
 ```bash
-python3 -m http.server 8123
-# then open http://localhost:8123
+python3 -m http.server 8123   # then open http://localhost:8123
 ```
 
-## Use it on your phone tonight (same Wi-Fi)
-Start the server above, then on your phone visit:
-```
-http://192.168.50.126:8123
-```
-Data entry + CSV share work immediately. (Full offline mode and a clean
-"install" require HTTPS — see below — but over Wi-Fi this is ready to use.)
-
-## Deploy to boardgamenightwg.com (recommended)
-It's all static files — upload the folder to any HTTPS host (your web host,
-Netlify, GitHub Pages, Cloudflare Pages). Once served over **https**, open it in
-Chrome on your phone → menu → **Add to Home screen** / **Install app**. It then
-launches full-screen like a native app and works with no signal.
+## Move it to boardgamenightwg.com later (optional)
+It's plain static files. To serve it under your main site, drop this folder into
+the Zola site's `static/` (e.g. `static/collector/`) and rebuild, or add it as a
+path on whatever host serves boardgamenightwg.com. Paths are all relative, so it
+works under any sub-path.
 
 ## CSV format
 `name, email, note, event_date, collected_at`
