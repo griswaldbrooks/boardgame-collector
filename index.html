@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#1b1230" />
+  <title>BGN Collector</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/favicon.png" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BGN Collector" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <img class="brand-logo" src="icons/icon-192.png" alt="" />
+      <div class="brand-text">
+        <h1>Board Game Night</h1>
+        <p>Email sign-up</p>
+      </div>
+    </div>
+    <button id="dateBtn" class="date-chip" type="button" aria-label="Change event date">
+      <span id="dateLabel">Today</span>
+      <input id="dateInput" type="date" class="date-input" aria-hidden="true" />
+    </button>
+  </header>
+
+  <main class="app-main">
+    <form id="entryForm" class="entry-form" autocomplete="off" novalidate>
+      <label class="field">
+        <span class="field-label">Name</span>
+        <input id="name" name="name" type="text" inputmode="text"
+               autocapitalize="words" placeholder="Alex Rivera" />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Email <em>required</em></span>
+        <input id="email" name="email" type="email" inputmode="email"
+               autocapitalize="off" autocorrect="off" spellcheck="false"
+               placeholder="alex@example.com" required />
+      </label>
+
+      <label class="field">
+        <span class="field-label">Note <em>optional</em></span>
+        <input id="note" name="note" type="text"
+               placeholder="wants to host / likes heavy euros" />
+      </label>
+
+      <button id="addBtn" class="add-btn" type="submit">＋ Add to list</button>
+      <p id="formMsg" class="form-msg" role="status" aria-live="polite"></p>
+    </form>
+
+    <section class="roster">
+      <div class="roster-head">
+        <h2 id="countLabel">0 collected</h2>
+        <div class="roster-actions">
+          <button id="exportBtn" class="ghost-btn" type="button">Export CSV</button>
+        </div>
+      </div>
+      <ul id="list" class="list" aria-live="polite"></ul>
+      <p id="emptyState" class="empty-state">No one yet tonight — add your first sign-up above. 🎲</p>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <button id="exportAllBtn" class="link-btn" type="button">Export all events (<span id="allCount">0</span>)</button>
+    <span class="dot">·</span>
+    <span id="storeNote">Saved on this phone · works offline</span>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
