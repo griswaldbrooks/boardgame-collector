@@ -19,13 +19,10 @@
       <img class="brand-logo" src="icons/icon-192.png" alt="" />
       <div class="brand-text">
         <h1>Board Game Night</h1>
-        <p>Email sign-up</p>
+        <p>Mailing list sign-up</p>
       </div>
     </div>
-    <button id="dateBtn" class="date-chip" type="button" aria-label="Change event date">
-      <span id="dateLabel">Today</span>
-      <input id="dateInput" type="date" class="date-input" aria-hidden="true" />
-    </button>
+    <span id="countChip" class="count-chip">0</span>
   </header>
 
   <main class="app-main">
@@ -55,19 +52,20 @@
 
     <section class="roster">
       <div class="roster-head">
-        <h2 id="countLabel">0 collected</h2>
+        <h2 id="countLabel">Mailing list</h2>
         <div class="roster-actions">
           <button id="exportBtn" class="ghost-btn" type="button">Export CSV</button>
         </div>
       </div>
+      <input id="search" class="search" type="search" inputmode="search"
+             autocapitalize="off" autocorrect="off" spellcheck="false"
+             placeholder="Search the list…" aria-label="Search the list" />
       <ul id="list" class="list" aria-live="polite"></ul>
-      <p id="emptyState" class="empty-state">No one yet tonight — add your first sign-up above. 🎲</p>
+      <p id="emptyState" class="empty-state">No one on the list yet — add your first sign-up above. 🎲</p>
     </section>
   </main>
 
   <footer class="app-footer">
-    <button id="exportAllBtn" class="link-btn" type="button">Export all events (<span id="allCount">0</span>)</button>
-    <span class="dot">·</span>
     <span id="storeNote">Saved on this phone · works offline</span>
   </footer>
 

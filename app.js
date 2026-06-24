@@ -1,5 +1,5 @@
-/* Board Game Night — Email Collector (PWA)
- * Offline-first. All data lives in localStorage on this device. */
+/* Board Game Night — Mailing List Collector (PWA)
+ * Offline-first. One running list of sign-ups, stored on this device. */
 
 (() => {
   "use strict";
@@ -17,14 +17,13 @@
   const listEl = $("list");
   const emptyState = $("emptyState");
   const countLabel = $("countLabel");
-  const allCount = $("allCount");
-  const dateInput = $("dateInput");
-  const dateLabel = $("dateLabel");
+  const countChip = $("countChip");
+  const searchEl = $("search");
   const toast = $("toast");
 
   // ---- state ----
   let entries = load();
-  let activeDate = todayKey();
+  let query = "";
   let lastDeleted = null;
   let undoTimer = null;
 
@@ -41,46 +40,52 @@
   function save() {
     try {
       localStorage.setItem(STORE_KEY, JSON.stringify(entries));
-    } catch (e) {
+    } catch {
       showToast("⚠️ Could not save — storage full?");
     }
   }
 
-  // ---- dates ----
-  function todayKey() {
-    const d = new Date();
+  function signupDate(ts) {
+    const d = new Date(ts);
     const m = String(d.getMonth() + 1).padStart(2, "0");
     const day = String(d.getDate()).padStart(2, "0");
     return `${d.getFullYear()}-${m}-${day}`;
   }
-  function prettyDate(key) {
-    const [y, m, d] = key.split("-").map(Number);
-    const dt = new Date(y, m - 1, d);
-    const opts = { weekday: "short", month: "short", day: "numeric" };
-    const label = dt.toLocaleDateString(undefined, opts);
-    return key === todayKey() ? `Tonight · ${label}` : label;
-  }
 
   // ---- rendering ----
-  function entriesFor(dateKey) {
-    return entries
-      .filter((e) => e.date === dateKey)
-      .sort((a, b) => b.ts - a.ts);
+  function visible() {
+    const q = query.trim().toLowerCase();
+    const sorted = [...entries].sort((a, b) => b.ts - a.ts);
+    if (!q) return sorted;
+    return sorted.filter(
+      (e) =>
+        (e.name || "").toLowerCase().includes(q) ||
+        e.email.toLowerCase().includes(q) ||
+        (e.note || "").toLowerCase().includes(q)
+    );
   }
 
   function render() {
-    dateInput.value = activeDate;
-    dateLabel.textContent = prettyDate(activeDate);
-    allCount.textContent = String(entries.length);
-
-    const todays = entriesFor(activeDate);
+    const total = entries.length;
+    countChip.textContent = String(total);
     countLabel.textContent =
-      todays.length === 1 ? "1 collected" : `${todays.length} collected`;
+      total === 1 ? "1 on the list" : `${total} on the list`;
 
+    const rows = visible();
     listEl.innerHTML = "";
-    emptyState.style.display = todays.length ? "none" : "block";
+    emptyState.style.display = total ? "none" : "block";
+    searchEl.style.display = total > 8 ? "block" : "none";
 
-    for (const e of todays) {
+    if (total && !rows.length) {
+      const li = document.createElement("li");
+      li.className = "empty-state";
+      li.style.listStyle = "none";
+      li.textContent = "No matches.";
+      listEl.appendChild(li);
+      return;
+    }
+
+    for (const e of rows) {
       const li = document.createElement("li");
       li.className = "list-item";
 
@@ -132,21 +137,23 @@
     }
     emailEl.classList.remove("invalid");
 
+    // Global dedupe — one entry per email across the whole list.
     const dupe = entries.find(
-      (e) => e.date === activeDate && e.email.toLowerCase() === email.toLowerCase()
+      (e) => e.email.toLowerCase() === email.toLowerCase()
     );
     if (dupe) {
-      setMsg(`${email} is already on tonight's list.`, "error");
+      setMsg(`${email} is already on the list.`, "error");
       return;
     }
 
+    const ts = Date.now();
     entries.push({
-      id: `${Date.now()}-${Math.round(performance.now())}`,
+      id: `${ts}-${Math.round(performance.now())}`,
       name,
       email,
       note,
-      date: activeDate,
-      ts: Date.now(),
+      date: signupDate(ts), // when they signed up (CSV metadata)
+      ts,
     });
     save();
     render();
@@ -225,7 +232,7 @@
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }
   function buildCsv(rows) {
-    const head = ["name", "email", "note", "event_date", "collected_at"];
+    const head = ["name", "email", "note", "signed_up_on", "signed_up_at"];
     const lines = [head.join(",")];
     for (const e of rows) {
       lines.push(
@@ -241,30 +248,28 @@
     return lines.join("\r\n");
   }
 
-  async function exportRows(rows, label) {
+  async function exportList() {
+    const rows = [...entries].sort((a, b) => a.ts - b.ts);
     if (!rows.length) {
       showToast("Nothing to export yet.");
       return;
     }
     const csv = buildCsv(rows);
-    const fname = `bgn-emails-${label}.csv`;
+    const fname = "bgn-mailing-list.csv";
     const file = new File([csv], fname, { type: "text/csv" });
 
-    // Prefer native share sheet (mobile) when files are supported.
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
       try {
         await navigator.share({
           files: [file],
-          title: "Board Game Night sign-ups",
-          text: `${rows.length} email${rows.length === 1 ? "" : "s"}`,
+          title: "Board Game Night mailing list",
+          text: `${rows.length} sign-up${rows.length === 1 ? "" : "s"}`,
         });
         return;
       } catch (err) {
         if (err && err.name === "AbortError") return; // user cancelled
-        // otherwise fall through to download
       }
     }
-    // Fallback: download the file.
     const url = URL.createObjectURL(file);
     const a = document.createElement("a");
     a.href = url;
@@ -279,20 +284,11 @@
   // ---- wire up ----
   form.addEventListener("submit", addEntry);
   emailEl.addEventListener("input", () => emailEl.classList.remove("invalid"));
-
-  dateInput.addEventListener("change", () => {
-    if (dateInput.value) {
-      activeDate = dateInput.value;
-      render();
-    }
+  searchEl.addEventListener("input", () => {
+    query = searchEl.value;
+    render();
   });
-
-  $("exportBtn").addEventListener("click", () =>
-    exportRows(entriesFor(activeDate), activeDate)
-  );
-  $("exportAllBtn").addEventListener("click", () =>
-    exportRows([...entries].sort((a, b) => a.ts - b.ts), "all")
-  );
+  $("exportBtn").addEventListener("click", exportList);
 
   render();
 
