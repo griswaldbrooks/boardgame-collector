@@ -153,6 +153,33 @@ body {
 }
 .ghost-btn:active { background: var(--card-2); }
 
+.groups-btn {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  margin-bottom: 12px;
+  padding: 0 16px;
+  background: rgba(255, 122, 89, .12);
+  border: 1.5px solid var(--accent);
+  color: var(--text);
+  border-radius: 12px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.groups-btn:active { background: rgba(255, 122, 89, .22); }
+
+.added-badge {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--good);
+  background: rgba(74, 222, 128, .14);
+  border-radius: 999px;
+  vertical-align: middle;
+}
+
 .search {
   width: 100%;
   min-height: 44px;

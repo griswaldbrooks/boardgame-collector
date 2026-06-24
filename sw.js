@@ -1,5 +1,5 @@
 /* Service worker: cache the app shell so it works fully offline. */
-const CACHE = "bgn-collector-v2";
+const CACHE = "bgn-collector-v3";
 const SHELL = [
   ".",
   "index.html",
