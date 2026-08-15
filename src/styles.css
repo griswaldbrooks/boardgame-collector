@@ -1,12 +1,43 @@
-/* Design tokens from the Coordinator App spec (README.md). */
+/* Design tokens from the Coordinator App spec (README.md, "Design Tokens"). */
 :root {
   --page: #f6f4f0;
   --surface: #ffffff;
   --border: #e4e0d8;
+  --divider: #efebe3;
+  --input-border: #dad5cb;
+  --input-bg: #fcfbf9;
   --text-primary: #222222;
   --text-body: #444444;
+  --text-body-alt: #333333;
   --text-secondary: #6b6459;
+  --text-tertiary: #7d766b;
   --text-muted: #9a9288;
+  --text-placeholder: #a09889;
+  --text-faint: #8a8378;
+  --chevron: #c3bcb1;
+  --ink: #1e1b17;
+  --cta-disabled: #e7e3db;
+  --link: #3273dc;
+  /* accent triples: mail / message / calendar / contacts / agent */
+  --mail-bg: #ffe9d2;
+  --mail-border: #ffcfa6;
+  --mail-text: #b34700;
+  --message-bg: #e8eef9;
+  --message-border: #cfdcf2;
+  --calendar-bg: #ede6f7;
+  --calendar-border: #dccff0;
+  --contact-bg: #e3f4ea;
+  --contact-border: #bfe3ce;
+  --agent-bg: #f3f4fd;
+  --agent-border: #dddff6;
+  --agent-title: #2e3168;
+  --agent-sub: #55578f;
+  --agent-chip-border: #c9cbf0;
+  --agent-text: #3b3e7a;
+  --agent-chevron: #a9acd8;
+  /* warm notice */
+  --warm-bg: #fffdf9;
+  --warm-border: #efe7da;
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -28,14 +59,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+
+/* Phone portrait canvas, capped and centered per spec ("Responsive"). */
 .screen {
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  max-width: 420px; /* phone portrait canvas, centered per spec */
+  height: 100dvh;
+  max-width: 420px;
   margin: 0 auto;
+  background: var(--page);
 }
 
+/* Shared: Header — fixed at top, does not scroll. */
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -44,6 +87,14 @@ body {
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  flex-shrink: 0;
+}
+
+.header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .kicker {
@@ -61,14 +112,25 @@ body {
   color: var(--text-primary);
 }
 
+.header-action {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--link);
+  padding: 8px 2px;
+  white-space: nowrap;
+}
+
+/* Shared: Content area */
 .content {
   flex: 1;
+  overflow-y: auto;
   padding: 16px 16px 40px;
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
+/* Shared: Section label */
 .section-label {
   font-family: var(--mono);
   font-size: 10px;
@@ -78,6 +140,7 @@ body {
   padding: 4px 4px 0;
 }
 
+/* Shared: Card */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -98,4 +161,526 @@ body {
   font-size: 13.5px;
   line-height: 1.45;
   color: var(--text-body);
+}
+
+/* Card that is only a list of padded rows */
+.rows-card {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.empty {
+  padding: 14px 16px;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
+/* Shared: Primary CTA */
+.cta {
+  background: var(--ink);
+  color: #ffffff;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+.cta:disabled {
+  background: var(--cta-disabled);
+  color: var(--text-placeholder);
+  cursor: default;
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-body-alt);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 600;
+  min-height: 44px;
+}
+
+/* Inputs (16px so mobile keyboards don't zoom on focus) */
+.input {
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 13px 12px;
+  font-size: 16px;
+  font-family: var(--sans);
+  color: var(--text-primary);
+  background: var(--input-bg);
+  outline: none;
+  min-height: 44px;
+  width: 100%;
+}
+
+.input::placeholder {
+  color: var(--text-placeholder);
+}
+
+textarea.input {
+  padding: 12px;
+  resize: none;
+  line-height: 1.45;
+}
+
+.batch-area {
+  font-family: var(--mono);
+  font-size: 15px;
+  min-height: 150px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.field-chips {
+  gap: 8px;
+}
+
+.field-card {
+  gap: 14px;
+}
+
+.field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.opt {
+  font-weight: 400;
+  color: var(--text-placeholder);
+}
+
+/* Shared: Chip (single-select) */
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  font-size: 12.5px;
+  padding: 9px 13px;
+  border-radius: 999px;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--input-border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.chip-on {
+  border-color: var(--mail-border);
+  background: var(--mail-bg);
+  color: var(--mail-text);
+  font-weight: 600;
+}
+
+/* Add-screen tabs */
+.tabs {
+  display: flex;
+  gap: 10px;
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 11px;
+  border-radius: 11px;
+  min-height: 44px;
+  background: var(--surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+
+.tab-on {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+}
+
+/* Explainer (warm notice) */
+.explain {
+  background: var(--warm-bg);
+  border: 1px solid var(--warm-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+
+.explain-glyph {
+  font-size: 14px;
+  color: var(--mail-text);
+  line-height: 1.2;
+}
+
+.explain-body {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.explain-addr {
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+/* Batch count row under the textarea */
+.batch-counts {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.batch-count {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.batch-dupes {
+  font-size: 12.5px;
+  color: var(--mail-text);
+}
+
+/* Shared: Agent handoff row */
+.agent-row {
+  background: var(--surface);
+  border: 1px dashed var(--agent-chip-border);
+  border-radius: 12px;
+  padding: 13px 15px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-height: 44px;
+  width: 100%;
+  text-align: left;
+  transition: background 120ms ease;
+}
+
+.agent-row:hover {
+  background: #f8f8fe;
+}
+
+.agent-row-emoji {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.agent-row-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--agent-text);
+  line-height: 1.4;
+}
+
+.agent-row-chevron {
+  font-size: 17px;
+  color: var(--agent-chevron);
+}
+
+/* ------------------------------ Home ------------------------------ */
+
+.event-card {
+  gap: 11px;
+}
+
+.event-title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.event-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--mail-text);
+  background: var(--mail-bg);
+  border: 1px solid var(--mail-border);
+  border-radius: 999px;
+  padding: 3px 9px;
+}
+
+.event-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.event-line {
+  font-size: 14px;
+  color: var(--text-body);
+}
+
+.stat-row {
+  display: flex;
+  gap: 26px;
+  padding-top: 10px;
+  border-top: 1px solid var(--divider);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.stat-label {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+/* Home action cards — each tinted per the spec table */
+.action-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 15px 16px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 44px;
+  width: 100%;
+  text-align: left;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  flex-shrink: 0;
+}
+
+.action-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.action-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.action-sub {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+}
+
+.action-chevron {
+  font-size: 18px;
+  color: var(--chevron);
+}
+
+.action-mail .tile {
+  background: var(--mail-bg);
+  border-color: var(--mail-border);
+}
+
+.action-mail:hover {
+  border-color: var(--mail-border);
+  background: var(--warm-bg);
+}
+
+.action-message .tile {
+  background: var(--message-bg);
+  border-color: var(--message-border);
+}
+
+.action-message:hover {
+  border-color: var(--message-border);
+  background: #fcfdff;
+}
+
+.action-luma .tile {
+  background: var(--calendar-bg);
+  border-color: var(--calendar-border);
+}
+
+.action-luma:hover {
+  border-color: var(--calendar-border);
+  background: #fdfcff;
+}
+
+.action-contact .tile {
+  background: var(--contact-bg);
+  border-color: var(--contact-border);
+}
+
+.action-contact:hover {
+  border-color: var(--contact-border);
+  background: #fbfefc;
+}
+
+/* Recent activity list */
+.recent-row {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.recent-row + .recent-row {
+  border-top: 1px solid var(--divider);
+}
+
+.recent-when {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 46px;
+  flex-shrink: 0;
+}
+
+.recent-what {
+  flex: 1;
+  font-size: 13.5px;
+  color: var(--text-body);
+  line-height: 1.35;
+}
+
+/* ------------------------------ Done ------------------------------ */
+
+.done-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 30px;
+  align-items: center;
+  text-align: center;
+}
+
+.done-badge {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--mail-bg);
+  border: 1px solid var(--mail-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 27px;
+  color: var(--mail-text);
+}
+
+.done-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.done-title {
+  font-size: 19px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.done-body {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+  max-width: 260px;
+}
+
+.done-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+  padding-top: 6px;
+}
+
+/* --------------------------- Agent stub --------------------------- */
+
+.agent-banner {
+  background: var(--agent-bg);
+  border: 1px solid var(--agent-border);
+  border-radius: 14px;
+  padding: 14px 15px;
+  display: flex;
+  gap: 11px;
+  align-items: flex-start;
+}
+
+.agent-banner-emoji {
+  font-size: 16px;
+}
+
+.agent-banner-copy {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.agent-banner-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--agent-title);
+}
+
+.agent-banner-sub {
+  font-size: 12.5px;
+  color: var(--agent-sub);
+  line-height: 1.45;
+}
+
+.task-preview {
+  border: 1px solid var(--input-border);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 15px;
+  line-height: 1.45;
+  color: var(--text-primary);
+  background: var(--input-bg);
+  min-height: 92px;
+  white-space: pre-wrap;
 }

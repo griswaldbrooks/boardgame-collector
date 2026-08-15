@@ -154,17 +154,17 @@ Row labels (shown to the user, not the pre-fill):
   - `Email` — placeholder `name@example.com`, IBM Plex Sans.
   - `Name` (optional) — placeholder `Alex Rivera`.
   - `Met them at` — chip row, wraps, `gap 8px`: `At an event` (default) · `Discord` · `Friend referral` · `Website form`.
-- **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Sends a Google Group invite from `bgn-wg@googlegroups.com`. They confirm; you don't have to open a laptop." The address renders in IBM Plex Mono 12px.
-- **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Send Google Group invite`, disabled label `Enter an email`.
+- **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Sends them a one-tap link to join `bgn-wg`. They tap Join on their phone; you never open a laptop." The group name renders in IBM Plex Mono 12px.
+- **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Send join link`, disabled label `Enter an email`.
 - **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Scan a QR sign-up sheet instead` → Scan screen.
 - **Agent handoff row.**
 
 **Mode: Paste a batch**
 
 - Card: label `Paste emails — commas, spaces, or one per line`, then textarea — same input styling but IBM Plex Mono 15px, `min-height 150px`, `resize: none`.
-- Below textarea, flex row `justify-content: space-between`: left 12.5px `#7D766B` showing `<n> valid addresses` or `Nothing pasted yet`; right 12.5px `#B34700` showing `2 already on the list` when more than 2 parsed.
+- Below textarea, flex row `justify-content: space-between`: left 12.5px `#7D766B` showing `<n> valid addresses` or `Nothing pasted yet`; right 12.5px `#B34700` showing `<n> already on the list` when parsed addresses match the local roster (an empty stub until CSV roster sync exists).
 - Parsing: split on `/[\s,;]+/`, keep tokens containing `@` past position 0.
-- **CTA:** `Invite <n> people`, disabled label `Paste some emails`.
+- **CTA:** `Send join link to <n> people`, disabled label `Paste some emails`.
 - **Agent handoff row.**
 
 ### 3. Scan sign-up sheet
@@ -265,8 +265,8 @@ Copy per outcome:
 
 | Outcome | Title | Body |
 |---|---|---|
-| Single add | `Invite sent` | `<name or email> will get a Google Group confirmation in a minute.` |
-| Batch add | `Invited <n> people` | `Google Group confirmations are on the way. Anyone already on the list was skipped.` |
+| Single add | `Invite sent` | `<name or email> will get your message with the join link.` |
+| Batch add | `Invited <n> people` | `Your message with the join link is on the way. Anyone already on the list was skipped.` |
 | Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
 | Message sent | `Message sent` | `Delivered to 412 members. It'll also show up in the group archive.` |
 | Luma added | `Event added` | `Tabletop RPG One-Shots now shows on our community calendar.` |

@@ -7,6 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test": "node --test",
     "tauri": "tauri",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk"
@@ -17,6 +18,7 @@
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.3.0",
-    "@fontsource/ibm-plex-sans": "^5.3.0"
+    "@fontsource/ibm-plex-sans": "^5.3.0",
+    "@tauri-apps/plugin-opener": "^2.5.4"
   }
 }
