@@ -30,6 +30,14 @@ test("batch parse: split on /[\\s,;]+/, keep tokens with '@' past position 0", (
   assert.deepEqual(parseBatch("a@b"), ["a@b"]);
 });
 
+test("batch parse dedupes, first occurrence wins", () => {
+  assert.deepEqual(parseBatch("a@example.com a@example.com"), ["a@example.com"]);
+  assert.deepEqual(
+    parseBatch("b@example.com, a@example.com; b@example.com\na@example.com"),
+    ["b@example.com", "a@example.com"],
+  );
+});
+
 test("join-link message carries the link and the subscribe fallback", () => {
   const msg = composeMessage();
   assert.ok(msg.includes(JOIN_LINK));
