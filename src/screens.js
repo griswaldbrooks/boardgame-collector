@@ -133,6 +133,7 @@ function fieldGroup(labelText, control, { optional = false, chips = false } = {}
   const label = optional
     ? h("div", { class: "field-label" }, `${labelText} `, h("span", { class: "opt" }, "optional"))
     : h("div", { class: "field-label" }, labelText);
+  if (control.matches?.("input, textarea, select")) control.setAttribute("aria-label", labelText);
   return h("div", { class: chips ? "field field-chips" : "field" }, label, control);
 }
 
@@ -220,6 +221,8 @@ function oneMode() {
 // Group" → Members → Export list); then load it in place of this constant.
 const ROSTER = [];
 
+const BATCH_LABEL = "Paste emails — commas, spaces, or one per line";
+
 function batchMode() {
   const emails = () => parseBatch(state.batch);
   const submit = cta(
@@ -238,6 +241,7 @@ function batchMode() {
   }
   const area = h("textarea", {
     class: "input batch-area",
+    "aria-label": BATCH_LABEL,
     placeholder: "jo@site.com, sam@site.com\nkim@site.com",
     value: state.batch,
     oninput: (e) => {
@@ -252,7 +256,7 @@ function batchMode() {
     h(
       "div",
       { class: "card field-card" },
-      h("div", { class: "field-label" }, "Paste emails — commas, spaces, or one per line"),
+      h("div", { class: "field-label" }, BATCH_LABEL),
       area,
       h("div", { class: "batch-counts" }, countLeft, countRight),
     ),
