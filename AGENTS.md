@@ -22,7 +22,11 @@ The design spec lives in `README.md` (handoff spec); flows are follow-up work.
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
   `JAVA_HOME=~/.gradle/jdks/eclipse_adoptium-17-amd64-linux.2`.
 - `src-tauri/gen/android` is generated (`npx tauri android init`) and committed,
-  like skydash-app; the manifest is patched for portrait-only per the spec.
+  like skydash-app. Three files in it are hand-patched, so a regen silently
+  clobbers them: `AndroidManifest.xml` (portrait-only per the spec),
+  `MainActivity.kt` (pads content by the system-bar insets instead of the
+  generated `enableEdgeToEdge()`), and `res/values/themes.xml`
+  (`windowLightStatusBar` for the light page background).
 
 ## Maintaining this file
 
