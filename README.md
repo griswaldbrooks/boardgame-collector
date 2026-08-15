@@ -1,55 +1,401 @@
-# Board Game Night — Email Collector
+# Handoff: Board Game Night WG — Coordinator App
 
-A tiny offline-first PWA (installable web app) for collecting attendee emails in
-person at board game night. One screen: **name + email + optional note → Add**.
-Everything is saved on the device; export a night's list (or all of them) as CSV
-via the phone's share sheet.
+## Overview
 
-## Features
-- Big touch targets, email keyboard, instant add, live count.
-- Per-event grouping by date (defaults to today; tap the date chip to switch).
-- Duplicate-email guard within a night, swipe-free delete with **Undo**.
-- **Export CSV** → native share sheet (email/Drive/etc.), or download fallback.
-- Works fully offline once installed (service worker caches the app shell).
-- No accounts, no backend, no tracking. Data lives in the browser's localStorage.
+A private, mobile-first tool for the small group of people who run Board Game Night WG. It is **not** a member-facing app: there is no browse, no RSVP, no public event list. Every screen exists to shorten a chore a coordinator currently does on a laptop.
+
+The four jobs, in priority order:
+
+1. **Add someone to the mailing list** (the Google Group). This is the reason the app exists — it should be reachable in one tap from a cold start.
+2. **Message the list** — announcements and reminders from templates.
+3. **Add a community Luma event** to the group's calendar by pasting a link.
+4. **Save a private contact** (venue, sponsor, vendor, volunteer) with notes — deliberately separate from the mailing list.
+
+Cutting across all four: a **Discord agent handoff**. Every flow ends with the option to hand that specific task to an agent running in the group's Discord instead of finishing it by hand.
+
+## About the Design Files
+
+`Coordinator App.dc.html` in this bundle is a **design reference created in HTML** — a clickable prototype that shows intended layout, copy, and flow. It is not production code and should not be copied into the target app.
+
+The task is to **recreate these designs in the target codebase's environment** using its existing patterns, component library, and navigation. If no codebase exists yet, pick the framework that fits (React Native / Expo is the natural choice for an installable phone app; a mobile web PWA is acceptable if distribution matters more than native feel) and implement there.
+
+The prototype renders inside an iPhone bezel (`ios-frame.jsx`). The bezel is scaffolding for viewing the design on desktop — do not reimplement it.
+
+## Fidelity
+
+**High-fidelity.** Colors, type sizes, spacing, radii, and copy are all final-intent and specified exactly below. Recreate the UI closely, but substitute the target codebase's existing primitives (buttons, inputs, list rows, navigation) where they exist rather than hand-rolling to match pixel-for-pixel. Where the codebase has a house style that conflicts, the codebase wins — the important things to preserve are the information hierarchy, the flow, and the copy.
+
+## Platform Notes
+
+- **Phone-first, portrait only.** Design canvas is 390×844 (iPhone 14/15 logical size).
+- Assume a coordinator using this one-handed, standing at a venue door, possibly on bad wifi. Optimistic UI and offline queueing for the mailing-list add are worth the effort.
+- All tap targets are **minimum 44px** tall.
+- Text inputs use **16px** font size to prevent iOS zoom-on-focus.
+
+## Screens / Views
+
+There are six screens plus a shared confirmation. Navigation is a single stack: Home is the root, every other screen pushes on top of it and has a **Cancel** action in the header returning to Home.
+
+### Shared: Header
+
+Fixed at top of every screen, does not scroll.
+
+- Container: `background #FFFFFF`, `border-bottom 1px solid #E4E0D8`, `padding 8px 20px 12px`, flex row, `align-items: flex-end`, `justify-content: space-between`, `gap 12px`.
+- **Kicker** (contextual label): IBM Plex Mono, 10px, `letter-spacing 0.12em`, uppercase, `#9A9288`.
+- **Title**: IBM Plex Sans, 21px, weight 700, `#222222`, `line-height 1.2`.
+- **Action** (right): 13px, weight 600, `#3273DC`, `padding 8px 2px`, `white-space: nowrap`. Tapping returns to Home.
+
+Per-screen header values:
+
+| Screen | Kicker | Title | Action |
+|---|---|---|---|
+| Home | `Wednesday crew` | `Home` | — |
+| Add to list | `Mailing list` | `Add members` | `Cancel` |
+| Scan | `Mailing list` | `Scan sheet` | `Cancel` |
+| Message | `412 members` | `Message the list` | `Cancel` |
+| Luma | `Community calendar` | `Add Luma event` | `Cancel` |
+| Contact | `Private · coordinators only` | `Save a contact` | `Cancel` |
+| Agent | `#coordinators` | `Agent 🤖` | `Cancel` |
+| Done | — | `Done` | — |
+
+### Shared: Content area
+
+Below the header: `flex: 1`, scrollable, `padding 16px 16px 40px`, flex column, `gap 14px`. Page background `#F6F4F0`.
+
+### Shared: Card
+
+The repeating container across all screens.
+
+- `background #FFFFFF`, `border 1px solid #E4E0D8`, `border-radius 14px`, `padding 16px`, flex column, `gap` 10–14px depending on density.
+
+### Shared: Section label
+
+IBM Plex Mono, 10px, `letter-spacing 0.12em`, uppercase, `#9A9288`, `padding 4px 4px 0`. Each carries a leading emoji.
+
+### Shared: Primary CTA
+
+- Enabled: `background #1E1B17`, `color #FFFFFF`, `border-radius 12px`, `padding 16px`, centered, 15px, weight 600, `cursor: pointer`.
+- Disabled: `background #E7E3DB`, `color #A09889`, not tappable. Label changes to an instruction (e.g. `Enter an email`) rather than staying static and greyed.
+
+### Shared: Chip (single-select)
+
+- Base: 12.5px, `padding 9px 13px`, `border-radius 999px`, `min-height 36px`, flex centered.
+- Unselected: `border 1px solid #DAD5CB`, `background #FFFFFF`, `color #6B6459`, weight 400.
+- Selected: `border 1px solid #FFCFA6`, `background #FFE9D2`, `color #B34700`, weight 600.
+
+### Shared: Agent handoff row
+
+Appears at the bottom of **every** task screen (Add, Batch, Message, Luma, Contact). This is the key cross-cutting pattern.
+
+- `background #FFFFFF`, `border 1px dashed #C9CBF0`, `border-radius 12px`, `padding 13px 15px`, flex row, `gap 11px`, `min-height 44px`. Hover `background #F8F8FE`.
+- 🤖 emoji at 16px, then 13px `#3B3E7A` text, then a `›` chevron in `#A9ACD8`.
+- Tapping navigates to the Agent screen with the task textarea **pre-filled** with wording specific to that flow:
+
+| From | Pre-filled task text |
+|---|---|
+| Add (single) | `Add everyone who reacted 🎲 to the last #announcements post to the mailing list.` |
+| Add (batch) | `Take the emails I pasted, drop anyone already on the list, and invite the rest.` |
+| Message | `Finish this reminder draft and send it to the list Monday at 9am.` |
+| Luma | `Watch Luma for Boston tabletop events this week and add anything relevant to our calendar.` |
+| Contact | `Email <contact name> about hosting a night in September.` |
+
+Row labels (shown to the user, not the pre-fill):
+- Add: `Have the agent pull everyone who reacted 🎲 in Discord onto the list`
+- Batch: `Have the agent dedupe this batch and invite the new ones`
+- Message: `Have the agent finish this draft and send it Monday 9am`
+- Luma: `Have the agent watch Luma and add community events all week`
+- Contact: `Have the agent email them about hosting a night in September`
+
+---
+
+### 1. Home
+
+**Purpose:** orient in two seconds, then get to the mailing-list add.
+
+**Layout:** vertical stack, `gap 14px`.
+
+1. **Next event card**
+   - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `6 days out`.
+   - Two lines, 14px `#444`: `Wednesday, Aug 5 · 6:00–9:00 pm` / `Cambridge Public Library, Lecture Hall`.
+   - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **34** RSVPs · **50** Capacity · **412** On the list.
+
+2. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
+
+3. **Section label:** `👇 Do a thing`
+
+4. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
+
+   | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
+   |---|---|---|---|---|
+   | 📬 | `#FFE9D2` / `#FFCFA6` | Add to mailing list | Scan, paste, or type — batches too | `#FFCFA6` / `#FFFDF9` |
+   | 📣 | `#E8EEF9` / `#CFDCF2` | Message the list | Announce or remind, from a template | `#CFDCF2` / `#FCFDFF` |
+   | 🗓️ | `#EDE6F7` / `#DCCFF0` | Add a community Luma event | Paste a link → our calendar | `#DCCFF0` / `#FDFCFF` |
+   | 📇 | `#E3F4EA` / `#BFE3CE` | Save a contact | Venue, sponsor, or vendor — not the list | `#BFE3CE` / `#FBFEFC` |
+
+5. **Section label:** `✨ Recent activity`
+
+6. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
+   - `Today` — 4 people added after the Somerville meetup
+   - `Mon` — Reminder sent — 412 members
+   - `Jul 24` — Added "Chess in the Park" to the calendar
+
+### 2. Add to mailing list
+
+**Purpose:** the core flow. Get an email into the Google Group without opening a laptop.
+
+**Layout:** a two-tab segmented control at top, then mode-specific content.
+
+**Tabs** (`One person` / `Paste a batch`): flex row `gap 10px`, each `flex: 1`, centered, 13.5px weight 600, `padding 11px`, `border-radius 11px`, `min-height 44px`. Active: `background #1E1B17`, `color #FFF`, `border 1px solid #1E1B17`. Inactive: `background #FFF`, `color #6B6459`, `border 1px solid #E4E0D8`.
+
+**Mode: One person**
+
+- Card with three field groups, `gap 14px`. Each group: label (12px, weight 600, `#6B6459`; optional fields append ` optional` in weight 400 `#A09889`) over input.
+  - **Input styling:** `border 1px solid #DAD5CB`, `border-radius 10px`, `padding 13px 12px`, `font-size 16px`, `color #222`, `background #FCFBF9`, `outline: none`, `min-height 44px`.
+  - `Email` — placeholder `name@example.com`, IBM Plex Sans.
+  - `Name` (optional) — placeholder `Alex Rivera`.
+  - `Met them at` — chip row, wraps, `gap 8px`: `At an event` (default) · `Discord` · `Friend referral` · `Website form`.
+- **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Sends a Google Group invite from `bgn-wg@googlegroups.com`. They confirm; you don't have to open a laptop." The address renders in IBM Plex Mono 12px.
+- **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Send Google Group invite`, disabled label `Enter an email`.
+- **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Scan a QR sign-up sheet instead` → Scan screen.
+- **Agent handoff row.**
+
+**Mode: Paste a batch**
+
+- Card: label `Paste emails — commas, spaces, or one per line`, then textarea — same input styling but IBM Plex Mono 15px, `min-height 150px`, `resize: none`.
+- Below textarea, flex row `justify-content: space-between`: left 12.5px `#7D766B` showing `<n> valid addresses` or `Nothing pasted yet`; right 12.5px `#B34700` showing `2 already on the list` when more than 2 parsed.
+- Parsing: split on `/[\s,;]+/`, keep tokens containing `@` past position 0.
+- **CTA:** `Invite <n> people`, disabled label `Paste some emails`.
+- **Agent handoff row.**
+
+### 3. Scan sign-up sheet
+
+**Purpose:** clear the paper sheet from the door in one go.
+
+- **Viewfinder:** `background #1E1B17`, `border-radius 16px`, `height 300px`, centered. Inside: a `176×176` box, `border 2px solid rgba(255,255,255,0.85)`, `border-radius 14px`. Caption absolutely positioned `bottom 16px`, centered, 12.5px `rgba(255,255,255,0.7)`: `Point at the sign-up sheet`.
+- **Results card:** heading `Read 3 rows` (13px, weight 700). Rows separated by `border-top 1px solid #EFEBE3`, `padding 9px 0`, flex row `gap 10px`. Left: `18×18` check tile, `border-radius 5px`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `color #B34700`, `✓` at 12px. Right: name 13.5px `#222` over email IBM Plex Mono 11.5px `#8A8378` with ellipsis overflow.
+  - Priya Raman / priya.raman@gmail.com
+  - Dev Okonkwo / dev.okonkwo@fastmail.com
+  - Marta Lein / mlein@northeastern.edu
+- **CTA:** `Invite all 3`.
+
+**Real implementation note:** the prototype fakes OCR. In production this is either (a) camera + OCR on handwriting, which is unreliable, or (b) a QR code printed on the sheet that members scan themselves. **Recommend (b)** — print a QR at the door linking to a signup form, and use this screen to display/regenerate that QR rather than to read handwriting. Confirm direction with the coordinators before building.
+
+### 4. Message the list
+
+**Purpose:** send an announcement or reminder without composing from scratch.
+
+- **Section label:** `Start from`
+- **Three template cards**, each `padding 14px 16px`, flex column `gap 3px`, `min-height 44px`. Title 14.5px weight 600 `#222`; description 12.5px `#7D766B`. Selected card: `border 1px solid #1E1B17`; unselected `#E4E0D8`.
+  - `Event reminder` — Two days out — time, place, what to bring
+  - `New event announced` — Date, venue, RSVP link
+  - `Post-night recap` — Games played, photos, next date
+- **Preview card:** label `Preview` (12px weight 600 `#6B6459`), body 13.5px `#333`, `line-height 1.5`, `white-space: pre-wrap`. Content swaps with selection:
+  - *Reminder:* `Subject: Wednesday at the Cambridge Library` / blank / `Hi all — we're on for Wed Aug 5, 6–9pm, Lecture Hall. 34 RSVPs so far. Bring a game if you've got a favorite.`
+  - *Announce:* `Subject: Next board game night — Aug 5` / blank / `We've got the Lecture Hall at Cambridge Public Library, 6–9pm. Free, all levels. RSVP so we know how many tables to set.`
+  - *Recap:* `Subject: Last night was a good one` / blank / `Thanks to the 38 of you who came out. Heavy Wingspan energy. Photos below — next up Aug 5.`
+- **CTA:** `Send to 412 members`.
+- **Agent handoff row.**
+
+**Production note:** the preview should be editable before sending, and the member count must come from the live Google Group. A confirm step before a 400-person send is warranted.
+
+### 5. Add a community Luma event
+
+**Purpose:** keep the community calendar current from a link someone dropped in chat.
+
+- **Input card:** label `Luma link`, input in IBM Plex Mono, placeholder `lu.ma/…`.
+- **Preview card** — renders once the field has more than 3 characters:
+  - Section label `Pulled from Luma`
+  - Title 16px weight 700 `#222`: `Tabletop RPG One-Shots @ Trident`
+  - Meta 13.5px `#555`: `Thu Aug 13 · 7:00 pm · Trident Booksellers`
+  - Tag pills, IBM Plex Mono 11px, `border-radius 999px`, `padding 4px 10px`: `community` (`#5B3BA8` on `#EDE6F7`, border `#DCCFF0`) and `rpg` (`#6B6459` on `#F2EFE9`, border `#E4E0D8`).
+- **CTA:** `Add to our calendar`.
+- **Agent handoff row.**
+
+**Production note:** fetch real event metadata from the pasted URL and show a loading state. **Check for duplicates against events already on the calendar** — this was flagged as likely necessary and is not in the prototype.
+
+### 6. Save a contact
+
+**Purpose:** remember the venue booker's constraints and the sponsor's last favor — without those people landing on the mailing list.
+
+- **Privacy banner** (first element, before the form): `background #F4FAF6`, `border 1px solid #DCEEE4`, `border-radius 14px`, `padding 13px 15px`, flex row `gap 10px`. 🔒 at 15px; body 12.5px `#4C6155` `line-height 1.45`: "Private to coordinators. Nothing here touches the mailing list or gets emailed."
+- **Form card**, `gap 14px`:
+  - `Name` — placeholder `Dana Whitfield`
+  - `Email` — placeholder `events@cambridgelibrary.org`, IBM Plex Mono
+  - `Phone or handle` (optional) — placeholder `617-555-0148 · @dana on Discord`
+  - `Who is this?` — chip row: `🏛️ Venue` (default) · `💰 Sponsor` · `🎁 Vendor` · `🙋 Volunteer`
+  - `Notes 📝` — textarea, IBM Plex Sans 15px, `min-height 110px`, `line-height 1.45`, placeholder `Books the lecture hall. Needs 3 weeks notice, no food past 8pm.`
+- **CTA:** `Save contact 📇`, enabled when name is non-empty; disabled label `Add a name first`.
+- **Agent handoff row.**
+- **Section label:** `Saved contacts`
+- **Saved list** — one card, rows `padding 13px 16px`, `border-top 1px solid #EFEBE3`, flex row `gap 12px`, emoji 17px, name 14px weight 600 `#222`, note 12.5px `#7D766B`:
+  - 🏛️ `Dana Whitfield · Cambridge Library` — Books the lecture hall. 3 weeks notice, no food past 8pm.
+  - 🎁 `Trident Booksellers` — Lends 6 games per night if we credit them in the recap.
+  - 💰 `Marco @ Somerville Brewing` — Covered snacks in June. Ask again in the fall.
+
+### 7. Discord agent
+
+**Purpose:** offload a task while away from a computer. Reachable from Home's status strip or any flow's handoff row.
+
+- **Connection banner:** `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 14px 15px`, flex row `gap 11px`. 🔗 at 16px. Title 13.5px weight 600 `#2E3168`: `Connected to #coordinators`. Sub 12.5px `#55578F` `line-height 1.45`: "Agent posts there when a task finishes, so anyone can pick it up. 🟢 Online".
+- **Task card:** label `Ask for something 🗣️`; textarea IBM Plex Sans 15px, `min-height 92px`, `line-height 1.45`, placeholder `Add everyone who reacted 🎲 in #announcements to the mailing list`. Pre-filled when arriving from a handoff row.
+- **Suggestion chips** below the textarea, wrapping, `gap 8px`. Style: 12.5px, `padding 9px 12px`, `border-radius 999px`, `min-height 36px`, `border 1px solid #C9CBF0`, `background #F3F4FD`, `color #3B3E7A`. Tapping replaces the textarea with the chip's text minus its leading emoji.
+  - `🎲 Pull Discord reactions onto the list`
+  - `📣 Draft Monday's reminder`
+  - `🗓️ Sweep Luma for community events`
+- **Guardrail banner:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 13px 15px`. ✋ at 14px; body 12.5px `#6B6459`: "Anything that emails members or spends money waits for your approval first."
+- **CTA:** `Hand it to the agent 🤖`, enabled when the textarea is non-empty; disabled label `Describe the task`.
+- **Section label:** `Agent queue`
+- **Queue list** — rows `padding 13px 16px`, `border-top 1px solid #EFEBE3`, flex row `gap 11px`, emoji 15px, description 13.5px `#333` `line-height 1.4`, status IBM Plex Mono 11px `#9A9288`:
+  - ⏳ `Adding 7 Discord reactors to the mailing list` — `Running · started 20 min ago`
+  - ✋ `Reminder email for Aug 5 — drafted, needs your OK` — `Waiting on you`
+  - ✅ `Added "Chess in the Park" to the calendar` — `Done · posted in #coordinators`
+
+**Production note:** the "waiting on you" item should be tappable to approve/reject inline. Not built in the prototype — this is the most important missing interaction on this screen.
+
+### 8. Done (shared confirmation)
+
+Reached from every successful action. Header title `Done`, no action.
+
+- Centered column, `gap 16px`, `padding-top 30px`, `text-align: center`.
+- **Check badge:** `62×62`, `border-radius 50%`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `✓` at 27px in `#B34700`.
+- **Title** 19px weight 700 `#222`; **body** 14px `#6B6459`, `line-height 1.45`, `max-width 260px`.
+- **Two buttons**, full width, `gap 10px`: `Add another` (primary dark) and `Back to home` (white, `border 1px solid #E4E0D8`, `color #333`).
+
+Copy per outcome:
+
+| Outcome | Title | Body |
+|---|---|---|
+| Single add | `Invite sent` | `<name or email> will get a Google Group confirmation in a minute.` |
+| Batch add | `Invited <n> people` | `Google Group confirmations are on the way. Anyone already on the list was skipped.` |
+| Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
+| Message sent | `Message sent` | `Delivered to 412 members. It'll also show up in the group archive.` |
+| Luma added | `Event added` | `Tabletop RPG One-Shots now shows on our community calendar.` |
+| Contact saved | `Contact saved 📇` | `<name> is in the coordinator address book. No emails sent.` |
+| Agent task | `Handed off 🤖` | `The agent picked it up and will post in #coordinators when it's done.` |
+
+## Interactions & Behavior
+
+**Navigation.** Single stack, one `screen` value: `home | add | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
+
+**Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
+
+**Validation.**
+- Single email: `/.+@.+\..+/`. CTA disabled until it passes.
+- Batch: at least one token containing `@`.
+- Contact: non-empty trimmed name. Email is *not* required — a venue contact may only have a phone number.
+- Agent: non-empty trimmed task.
+- Validation is live on every keystroke; there are no inline error messages. The disabled CTA's label is the only prompt.
+
+**Hover states.** Home action cards lift to a tinted background and colored border (values in the Home table). The agent handoff row goes `#F8F8FE`. No transitions specified in the prototype — a `120ms ease` on background/border is appropriate.
+
+**Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
+- Pending/spinner on every CTA that hits a network.
+- Failure path for Google Group invites (rate limits, permission errors, already-a-member). "Already a member" should read as success, not error.
+- Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
+- Empty state for the recent-activity and agent-queue lists.
+
+**Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.
+
+## State Management
+
+Prototype state, all local:
+
+| Key | Type | Default | Notes |
+|---|---|---|---|
+| `screen` | enum | `home` | see navigation above |
+| `mode` | `one \| batch` | `one` | Add screen tabs |
+| `email`, `name` | string | `''` | single add |
+| `source` | string | `At an event` | acquisition chip |
+| `batch` | string | `''` | raw textarea text |
+| `luma` | string | `''` | pasted URL |
+| `tpl` | `reminder \| announce \| recap` | `reminder` | template selection |
+| `cName`, `cEmail`, `cPhone`, `cNotes` | string | `''` | contact form |
+| `cTag` | string | `🏛️ Venue` | contact type |
+| `task` | string | `''` | agent task text |
+| `doneKind` | enum | `one` | drives confirmation copy |
+
+**Real data needed.** Everything numeric or list-shaped in the prototype is hardcoded and must come from a source of truth:
+
+- **Google Groups API** — member count (412), add/invite member, duplicate check. Requires a service account with Directory API access and domain delegation, or a coordinator OAuth flow. This is the main integration risk; scope it first.
+- **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
+- **Luma** — fetch event metadata from a pasted URL; add to the group calendar; dedupe against existing entries.
+- **Contacts** — private store, coordinators-only. Small enough for a simple hosted table; must not be readable by members.
+- **Discord** — bot in the coordinators server; task queue with status; approval callbacks for anything that emails or spends.
+- **Recent activity** — an append-only log of coordinator actions, shown newest-first with relative day labels (`Today`, `Mon`, `Jul 24`).
+
+**Auth.** Coordinators only. Google sign-in restricted to an allowlist is the least-friction option given the mailing list already lives in Google.
+
+## Design Tokens
+
+**Colors**
+
+| Role | Hex |
+|---|---|
+| Page background | `#F6F4F0` |
+| Surface / card | `#FFFFFF` |
+| Border | `#E4E0D8` |
+| Divider (inside cards) | `#EFEBE3` |
+| Input border | `#DAD5CB` |
+| Input background | `#FCFBF9` |
+| Text primary | `#222222` |
+| Text body | `#444444` / `#333333` |
+| Text secondary | `#6B6459` |
+| Text tertiary | `#7D766B` |
+| Text muted / mono labels | `#9A9288` |
+| Placeholder / disabled text | `#A09889` |
+| Chevron | `#C3BCB1` |
+| Ink (primary CTA) | `#1E1B17` |
+| Disabled CTA fill | `#E7E3DB` |
+| Link | `#3273DC` (hover `#285FB0`) |
+| Accent — mail (bg / border / text) | `#FFE9D2` / `#FFCFA6` / `#B34700` |
+| Accent — message | `#E8EEF9` / `#CFDCF2` / `#2C5FB3` |
+| Accent — calendar | `#EDE6F7` / `#DCCFF0` / `#5B3BA8` |
+| Accent — contacts | `#E3F4EA` / `#BFE3CE` / `#4C6155` |
+| Accent — agent | `#F3F4FD` / `#DDDFF6` / `#2E3168`, secondary text `#55578F`, chip border `#C9CBF0`, chip text `#3B3E7A`, chevron `#A9ACD8` |
+| Warm notice | `#FFFDF9` / `#EFE7DA` |
+| Camera viewfinder | `#1E1B17` |
+
+**Typography** — IBM Plex Sans (400/500/600/700) for UI; IBM Plex Mono (400/500) for labels, emails, URLs, and timestamps. Both from Google Fonts.
+
+| Use | Size / weight |
+|---|---|
+| Screen title | 21px / 700 |
+| Stat value | 20px / 700 |
+| Confirmation title | 19px / 700 |
+| Luma event title | 16px / 700 |
+| Input text | 16px / 400 |
+| Card title | 15px / 600–700 |
+| Body / preview | 13.5–14px / 400 |
+| Field label | 12px / 600 |
+| Subtitle, helper | 12.5px / 400 |
+| Stat label | 11px / 400 |
+| Mono section label | 10px / 400, `letter-spacing 0.12em`, uppercase |
+| Mono pill / timestamp | 11px / 400 |
+
+**Spacing** — 2, 3, 6, 8, 10, 11, 14, 16, 20, 26px. Content gutter 16px; card padding 16px (15px on row cards); stack gap 14px.
+
+**Radius** — 999px pills · 14px cards · 12px CTAs · 11px icon tiles and tabs · 10px inputs · 5px small check tiles · 16px viewfinder.
+
+**Elevation** — none. The design is flat; separation comes from 1px borders. Do not add shadows.
+
+## Assets
+
+No image assets. All iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
+
+Fonts load from Google Fonts:
+`https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap`
+
+## Open Questions for the Coordinators
+
+1. Is QR/OCR scanning at the door real, or is batch paste enough? (Affects whether screen 3 ships at all.)
+2. Should Luma import check for duplicates against the existing calendar? (Recommended yes.)
+3. What exactly may the Discord agent do unsupervised, and what always needs approval? The prototype assumes anything that emails members or spends money is gated.
+4. How many coordinators need access, and does the contact book need per-person privacy or is shared fine?
 
 ## Files
-```
-index.html              app shell
-styles.css              styling
-app.js                  all logic
-manifest.webmanifest    PWA manifest
-sw.js                   service worker (offline cache)
-icons/                  generated PNG icons
-make_icons.py           regenerate icons (needs Pillow)
-```
 
-## Live URL
-Deployed via GitHub Pages at:
+- `Coordinator App.dc.html` — the full clickable prototype: all eight screens, tab switching, validation, agent handoffs.
+- `ios-frame.jsx` — iPhone bezel used only to display the prototype on desktop. Not part of the design.
+- `support.js` — prototype runtime. Not part of the design.
 
-**https://griswaldbrooks.com/boardgame-collector/**
-
-## Install on your phone (then it works with NO internet / NO signal)
-1. While you have signal, open the live URL above in Chrome on your phone.
-2. Menu (⋮) → **Install app** / **Add to Home screen**.
-3. Open it once from the home screen.
-
-That's it. The service worker has now cached the whole app on your phone, and all
-data is stored locally. Put the phone in airplane mode, go to a venue with no
-Wi-Fi and no cell signal — it still opens and collects emails. CSV export to a
-file / Drive works offline too (emailing the file just sends once you're back
-online).
-
-## Run / develop locally
-```bash
-python3 -m http.server 8123   # then open http://localhost:8123
-```
-
-## Move it to boardgamenightwg.com later (optional)
-It's plain static files. To serve it under your main site, drop this folder into
-the Zola site's `static/` (e.g. `static/collector/`) and rebuild, or add it as a
-path on whatever host serves boardgamenightwg.com. Paths are all relative, so it
-works under any sub-path.
-
-## CSV format
-`name, email, note, event_date, collected_at`
+To view: open `Coordinator App.dc.html` in a browser and tap through. Start at Home → `Add to mailing list`.

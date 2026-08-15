@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="crossorigin" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+body { margin: 0; background: #EDEAE4; font-family: 'IBM Plex Sans', Verdana, sans-serif; }
+a { color: #3273dc; text-decoration: none; }
+a:hover { color: #285fb0; }
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 40px 20px 64px; box-sizing: border-box;">
+<div style="width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 5px;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: #8a8378;">Coordinator tools · prototype</div>
+<div style="font-size: 25px; font-weight: 700; color: #222; line-height: 1.2;">Board Game Night WG</div>
+<div style="font-size: 14px; color: #6b6459;">Tap through it — the mailing-list flow is the one to judge.</div>
+</div>
+
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+<div style="height: 100%; display: flex; flex-direction: column; background: #F6F4F0; font-family: 'IBM Plex Sans', Verdana, sans-serif;">
+
+<div style="padding: 8px 20px 12px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; background: #ffffff; border-bottom: 1px solid #E4E0D8; flex-shrink: 0;">
+<div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288;">{{ headerKicker }}</div>
+<div style="font-size: 21px; font-weight: 700; color: #222; line-height: 1.2;">{{ headerTitle }}</div>
+</div>
+<div onClick="{{ goHome }}" style="font-size: 13px; font-weight: 600; color: #3273dc; padding: 8px 2px; cursor: pointer; white-space: nowrap;">{{ headerAction }}</div>
+</div>
+
+<div style="flex: 1; overflow: auto; padding: 16px 16px 40px; display: flex; flex-direction: column; gap: 14px;">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 11px;">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 8px;">
+<div style="font-size: 15px; font-weight: 700; color: #222;">🎲 Next event</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #B34700; background: #FFE9D2; border: 1px solid #FFCFA6; border-radius: 999px; padding: 3px 9px;">6 days out</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 3px;">
+<div style="font-size: 14px; color: #444;">Wednesday, Aug 5 · 6:00–9:00 pm</div>
+<div style="font-size: 14px; color: #444;">Cambridge Public Library, Lecture Hall</div>
+</div>
+<div style="display: flex; gap: 26px; padding-top: 10px; border-top: 1px solid #EFEBE3;">
+<div style="display: flex; flex-direction: column;"><div style="font-size: 20px; font-weight: 700; color: #222;">34</div><div style="font-size: 11px; color: #8a8378;">RSVPs</div></div>
+<div style="display: flex; flex-direction: column;"><div style="font-size: 20px; font-weight: 700; color: #222;">50</div><div style="font-size: 11px; color: #8a8378;">Capacity</div></div>
+<div style="display: flex; flex-direction: column;"><div style="font-size: 20px; font-weight: 700; color: #222;">412</div><div style="font-size: 11px; color: #8a8378;">On the list</div></div>
+</div>
+</div>
+
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288; padding: 4px 4px 0;">👇 Do a thing</div>
+
+<div onClick="{{ goAdd }}" style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 15px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; min-height: 44px;" style-hover="border-color: #FFCFA6; background: #FFFDF9;">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #FFE9D2; border: 1px solid #FFCFA6; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0;">📬</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+<div style="font-size: 15px; font-weight: 600; color: #222;">Add to mailing list</div>
+<div style="font-size: 12.5px; color: #7d766b;">Scan, paste, or type — batches too</div>
+</div>
+<div style="font-size: 18px; color: #c3bcb1;">›</div>
+</div>
+
+<div onClick="{{ goBroadcast }}" style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 15px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; min-height: 44px;" style-hover="border-color: #CFDCF2; background: #FCFDFF;">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #E8EEF9; border: 1px solid #CFDCF2; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0;">📣</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+<div style="font-size: 15px; font-weight: 600; color: #222;">Message the list</div>
+<div style="font-size: 12.5px; color: #7d766b;">Announce or remind, from a template</div>
+</div>
+<div style="font-size: 18px; color: #c3bcb1;">›</div>
+</div>
+
+<div onClick="{{ goLuma }}" style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 15px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; min-height: 44px;" style-hover="border-color: #DCCFF0; background: #FDFCFF;">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #EDE6F7; border: 1px solid #DCCFF0; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0;">🗓️</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+<div style="font-size: 15px; font-weight: 600; color: #222;">Add a community Luma event</div>
+<div style="font-size: 12.5px; color: #7d766b;">Paste a link → our calendar</div>
+</div>
+<div style="font-size: 18px; color: #c3bcb1;">›</div>
+</div>
+
+<div onClick="{{ goContact }}" style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 15px 16px; display: flex; align-items: center; gap: 14px; cursor: pointer; min-height: 44px;" style-hover="border-color: #BFE3CE; background: #FBFEFC;">
+<div style="width: 40px; height: 40px; border-radius: 11px; background: #E3F4EA; border: 1px solid #BFE3CE; display: flex; align-items: center; justify-content: center; font-size: 19px; flex-shrink: 0;">📇</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+<div style="font-size: 15px; font-weight: 600; color: #222;">Save a contact</div>
+<div style="font-size: 12.5px; color: #7d766b;">Venue, sponsor, or vendor — not the list</div>
+</div>
+<div style="font-size: 18px; color: #c3bcb1;">›</div>
+</div>
+
+<sc-if value="{{ hasQueue }}" hint-placeholder-val="{{ true }}">
+<div onClick="{{ goAgentPlain }}" style="background: #F3F4FD; border: 1px solid #DDDFF6; border-radius: 14px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;">
+<div style="font-size: 16px; flex-shrink: 0;">🤖</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<div style="font-size: 13.5px; font-weight: 600; color: #2E3168;">{{ agentSubtitle }}</div>
+<div style="font-size: 12.5px; color: #55578f;">Agent is working in #coordinators 🟢</div>
+</div>
+<div style="font-size: 18px; color: #A9ACD8;">›</div>
+</div>
+</sc-if>
+
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288; padding: 6px 4px 0;">✨ Recent activity</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; overflow: hidden;">
+<sc-for list="{{ recent }}" as="r" hint-placeholder-count="3">
+<div style="padding: 12px 16px; display: flex; align-items: center; gap: 12px; border-top: 1px solid #EFEBE3;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9a9288; width: 46px; flex-shrink: 0;">{{ r.when }}</div>
+<div style="flex: 1; font-size: 13.5px; color: #444; line-height: 1.35;">{{ r.what }}</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAdd }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; gap: 10px;">
+<div onClick="{{ setModeOne }}" style="{{ tabOneStyle }}">One person</div>
+<div onClick="{{ setModeBatch }}" style="{{ tabBatchStyle }}">Paste a batch</div>
+</div>
+
+<sc-if value="{{ isOne }}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Email</div>
+<input value="{{ email }}" onChange="{{ onEmail }}" placeholder="name@example.com" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Name <span style="font-weight: 400; color: #a09889;">optional</span></div>
+<input value="{{ name }}" onChange="{{ onName }}" placeholder="Alex Rivera" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Met them at</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{ sources }}" as="s" hint-placeholder-count="4">
+<div onClick="{{ s.pick }}" style="{{ s.style }}">{{ s.label }}</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<div style="background: #FFFDF9; border: 1px solid #EFE7DA; border-radius: 14px; padding: 14px 16px; display: flex; gap: 11px; align-items: flex-start;">
+<div style="font-size: 14px; color: #B34700; line-height: 1.2;">◔</div>
+<div style="font-size: 12.5px; color: #6b6459; line-height: 1.45;">Sends a Google Group invite from <span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px;">bgn-wg@googlegroups.com</span>. They confirm; you don't have to open a laptop.</div>
+</div>
+
+<div onClick="{{ submitOne }}" style="{{ submitStyle }}">{{ submitLabel }}</div>
+<div onClick="{{ goScan }}" style="text-align: center; font-size: 13.5px; font-weight: 600; color: #3273dc; padding: 10px; cursor: pointer; min-height: 44px; box-sizing: border-box;">Scan a QR sign-up sheet instead</div><div onClick="{{ handoffAdd }}" style="background: #ffffff; border: 1px dashed #C9CBF0; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;" style-hover="background: #F8F8FE;"><div style="font-size: 16px; flex-shrink: 0;">🤖</div><div style="flex: 1; min-width: 0; font-size: 13px; color: #3B3E7A; line-height: 1.4;">Have the agent pull everyone who reacted 🎲 in Discord onto the list</div><div style="font-size: 17px; color: #A9ACD8;">›</div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBatch }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Paste emails — commas, spaces, or one per line</div>
+<textarea value="{{ batch }}" onChange="{{ onBatch }}" placeholder="jo@site.com, sam@site.com&#10;kim@site.com" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 12px; font-size: 15px; font-family: 'IBM Plex Mono', monospace; color: #222; background: #FCFBF9; outline: none; min-height: 150px; resize: none; box-sizing: border-box;"></textarea>
+<div style="display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+<div style="font-size: 12.5px; color: #7d766b;">{{ batchCount }}</div>
+<div style="font-size: 12.5px; color: #B34700;">{{ batchDupes }}</div>
+</div>
+</div>
+<div onClick="{{ submitBatch }}" style="{{ batchSubmitStyle }}">{{ batchSubmitLabel }}</div><div onClick="{{ handoffBatch }}" style="background: #ffffff; border: 1px dashed #C9CBF0; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;" style-hover="background: #F8F8FE;"><div style="font-size: 16px; flex-shrink: 0;">🤖</div><div style="flex: 1; min-width: 0; font-size: 13px; color: #3B3E7A; line-height: 1.4;">Have the agent dedupe this batch and invite the new ones</div><div style="font-size: 17px; color: #A9ACD8;">›</div></div>
+</div>
+</sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{ isScan }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #1E1B17; border-radius: 16px; height: 300px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+<div style="width: 176px; height: 176px; border: 2px solid rgba(255,255,255,0.85); border-radius: 14px;"></div>
+<div style="position: absolute; bottom: 16px; left: 0; right: 0; text-align: center; font-size: 12.5px; color: rgba(255,255,255,0.7);">Point at the sign-up sheet</div>
+</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+<div style="font-size: 13px; font-weight: 700; color: #222;">Read 3 rows</div>
+<sc-for list="{{ scanned }}" as="s" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid #EFEBE3;">
+<div style="width: 18px; height: 18px; border-radius: 5px; background: #FFE9D2; border: 1px solid #FFCFA6; color: #B34700; font-size: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">✓</div>
+<div style="flex: 1; min-width: 0;">
+<div style="font-size: 13.5px; color: #222;">{{ s.name }}</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #8a8378; overflow: hidden; text-overflow: ellipsis;">{{ s.email }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+<div onClick="{{ submitScan }}" style="{{ scanSubmitStyle }}">Invite all 3</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 16px; padding-top: 30px; align-items: center; text-align: center;">
+<div style="width: 62px; height: 62px; border-radius: 50%; background: #FFE9D2; border: 1px solid #FFCFA6; display: flex; align-items: center; justify-content: center; font-size: 27px; color: #B34700;">✓</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 19px; font-weight: 700; color: #222;">{{ doneTitle }}</div>
+<div style="font-size: 14px; color: #6b6459; line-height: 1.45; max-width: 260px;">{{ doneBody }}</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px; width: 100%; padding-top: 6px;">
+<div onClick="{{ goAdd }}" style="background: #1E1B17; color: #fff; border-radius: 12px; padding: 15px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px; box-sizing: border-box;">Add another</div>
+<div onClick="{{ goHome }}" style="background: #ffffff; border: 1px solid #E4E0D8; color: #333; border-radius: 12px; padding: 15px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px; box-sizing: border-box;">Back to home</div>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isBroadcast }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288; padding: 0 4px;">Start from</div>
+<sc-for list="{{ templates }}" as="t" hint-placeholder-count="3">
+<div onClick="{{ t.pick }}" style="{{ t.style }}">
+<div style="font-size: 14.5px; font-weight: 600; color: #222;">{{ t.title }}</div>
+<div style="font-size: 12.5px; color: #7d766b; line-height: 1.4;">{{ t.desc }}</div>
+</div>
+</sc-for>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Preview</div>
+<div style="font-size: 13.5px; color: #333; line-height: 1.5; white-space: pre-wrap;">{{ preview }}</div>
+</div>
+<div onClick="{{ goDoneSend }}" style="background: #1E1B17; color: #fff; border-radius: 12px; padding: 16px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px; box-sizing: border-box;">Send to 412 members</div><div onClick="{{ handoffSend }}" style="background: #ffffff; border: 1px dashed #C9CBF0; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;" style-hover="background: #F8F8FE;"><div style="font-size: 16px; flex-shrink: 0;">🤖</div><div style="flex: 1; min-width: 0; font-size: 13px; color: #3B3E7A; line-height: 1.4;">Have the agent finish this draft and send it Monday 9am</div><div style="font-size: 17px; color: #A9ACD8;">›</div></div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isContact }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #F4FAF6; border: 1px solid #DCEEE4; border-radius: 14px; padding: 13px 15px; display: flex; gap: 10px; align-items: flex-start;">
+<div style="font-size: 15px;">🔒</div>
+<div style="font-size: 12.5px; color: #4c6155; line-height: 1.45;">Private to coordinators. Nothing here touches the mailing list or gets emailed.</div>
+</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 14px;">
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Name</div>
+<input value="{{ cName }}" onChange="{{ onCName }}" placeholder="Dana Whitfield" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Email</div>
+<input value="{{ cEmail }}" onChange="{{ onCEmail }}" placeholder="events@cambridgelibrary.org" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Mono', monospace; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Phone or handle <span style="font-weight: 400; color: #a09889;">optional</span></div>
+<input value="{{ cPhone }}" onChange="{{ onCPhone }}" placeholder="617-555-0148 · @dana on Discord" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<div style="display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Who is this?</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{ cTags }}" as="c" hint-placeholder-count="4">
+<div onClick="{{ c.pick }}" style="{{ c.style }}">{{ c.label }}</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Notes 📝</div>
+<textarea value="{{ cNotes }}" onChange="{{ onCNotes }}" placeholder="Books the lecture hall. Needs 3 weeks notice, no food past 8pm." style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 12px; font-size: 15px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 110px; resize: none; box-sizing: border-box; line-height: 1.45;"></textarea>
+</div>
+</div>
+<div onClick="{{ submitContact }}" style="{{ contactSubmitStyle }}">{{ contactSubmitLabel }}</div><div onClick="{{ handoffContact }}" style="background: #ffffff; border: 1px dashed #C9CBF0; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;" style-hover="background: #F8F8FE;"><div style="font-size: 16px; flex-shrink: 0;">🤖</div><div style="flex: 1; min-width: 0; font-size: 13px; color: #3B3E7A; line-height: 1.4;">Have the agent email them about hosting a night in September</div><div style="font-size: 17px; color: #A9ACD8;">›</div></div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288; padding: 8px 4px 0;">Saved contacts</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; overflow: hidden;">
+<sc-for list="{{ contacts }}" as="k" hint-placeholder-count="3">
+<div style="padding: 13px 16px; display: flex; gap: 12px; align-items: flex-start; border-top: 1px solid #EFEBE3;">
+<div style="font-size: 17px; flex-shrink: 0;">{{ k.icon }}</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+<div style="font-size: 14px; font-weight: 600; color: #222;">{{ k.name }}</div>
+<div style="font-size: 12.5px; color: #7d766b; line-height: 1.4;">{{ k.note }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAgent }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #F3F4FD; border: 1px solid #DDDFF6; border-radius: 14px; padding: 14px 15px; display: flex; gap: 11px; align-items: flex-start;">
+<div style="font-size: 16px;">🔗</div>
+<div style="flex: 1; display: flex; flex-direction: column; gap: 3px;">
+<div style="font-size: 13.5px; font-weight: 600; color: #2E3168;">Connected to #coordinators</div>
+<div style="font-size: 12.5px; color: #55578f; line-height: 1.45;">Agent posts there when a task finishes, so anyone can pick it up. 🟢 Online</div>
+</div>
+</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Ask for something 🗣️</div>
+<textarea value="{{ task }}" onChange="{{ onTask }}" placeholder="Add everyone who reacted 🎲 in #announcements to the mailing list" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 12px; font-size: 15px; font-family: 'IBM Plex Sans', Verdana, sans-serif; color: #222; background: #FCFBF9; outline: none; min-height: 92px; resize: none; box-sizing: border-box; line-height: 1.45;"></textarea>
+<div style="display: flex; flex-wrap: wrap; gap: 8px;">
+<sc-for list="{{ suggestions }}" as="g" hint-placeholder-count="3">
+<div onClick="{{ g.pick }}" style="font-size: 12.5px; padding: 9px 12px; border-radius: 999px; cursor: pointer; min-height: 36px; display: flex; align-items: center; border: 1px solid #C9CBF0; background: #F3F4FD; color: #3B3E7A;">{{ g.label }}</div>
+</sc-for>
+</div>
+</div>
+<div style="background: #FFFDF9; border: 1px solid #EFE7DA; border-radius: 14px; padding: 13px 15px; display: flex; gap: 10px; align-items: flex-start;">
+<div style="font-size: 14px;">✋</div>
+<div style="font-size: 12.5px; color: #6b6459; line-height: 1.45;">Anything that emails members or spends money waits for your approval first.</div>
+</div>
+<div onClick="{{ submitTask }}" style="{{ taskSubmitStyle }}">{{ taskSubmitLabel }}</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288; padding: 8px 4px 0;">Agent queue</div>
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; overflow: hidden;">
+<sc-for list="{{ queue }}" as="q" hint-placeholder-count="3">
+<div style="padding: 13px 16px; display: flex; gap: 11px; align-items: flex-start; border-top: 1px solid #EFEBE3;">
+<div style="font-size: 15px; flex-shrink: 0;">{{ q.icon }}</div>
+<div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;">
+<div style="font-size: 13.5px; color: #333; line-height: 1.4;">{{ q.what }}</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #9a9288;">{{ q.status }}</div>
+</div>
+</div>
+</sc-for>
+</div>
+</div>
+</sc-if>
+
+<sc-if value="{{ isLuma }}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px;">
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+<div style="font-size: 12px; font-weight: 600; color: #6b6459;">Luma link</div>
+<input value="{{ luma }}" onChange="{{ onLuma }}" placeholder="lu.ma/…" style="border: 1px solid #DAD5CB; border-radius: 10px; padding: 13px 12px; font-size: 16px; font-family: 'IBM Plex Mono', monospace; color: #222; background: #FCFBF9; outline: none; min-height: 44px; box-sizing: border-box;" />
+</div>
+<sc-if value="{{ hasLuma }}" hint-placeholder-val="{{ true }}">
+<div style="background: #ffffff; border: 1px solid #E4E0D8; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288;">Pulled from Luma</div>
+<div style="font-size: 16px; font-weight: 700; color: #222; line-height: 1.25;">Tabletop RPG One-Shots @ Trident</div>
+<div style="font-size: 13.5px; color: #555;">Thu Aug 13 · 7:00 pm · Trident Booksellers</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; padding-top: 4px;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #5B3BA8; background: #EDE6F7; border: 1px solid #DCCFF0; border-radius: 999px; padding: 4px 10px;">community</div>
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #6b6459; background: #F2EFE9; border: 1px solid #E4E0D8; border-radius: 999px; padding: 4px 10px;">rpg</div>
+</div>
+</div>
+<div onClick="{{ goDoneLuma }}" style="background: #1E1B17; color: #fff; border-radius: 12px; padding: 16px; text-align: center; font-size: 15px; font-weight: 600; cursor: pointer; min-height: 44px; box-sizing: border-box;">Add to our calendar</div><div onClick="{{ handoffLuma }}" style="background: #ffffff; border: 1px dashed #C9CBF0; border-radius: 12px; padding: 13px 15px; display: flex; align-items: center; gap: 11px; cursor: pointer; min-height: 44px;" style-hover="background: #F8F8FE;"><div style="font-size: 16px; flex-shrink: 0;">🤖</div><div style="flex: 1; min-width: 0; font-size: 13px; color: #3B3E7A; line-height: 1.4;">Have the agent watch Luma and add community events all week</div><div style="font-size: 17px; color: #A9ACD8;">›</div></div>
+</sc-if>
+</div>
+</sc-if>
+
+</div>
+</div>
+</x-import>
+
+<div style="width: 100%; max-width: 420px; display: flex; flex-direction: column; gap: 7px; font-size: 13px; color: #6b6459; line-height: 1.5;">
+<div style="font-family: 'IBM Plex Mono', monospace; font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: #9a9288;">Notes</div>
+<div>Mailing list is the home screen's first action — the other two are one tap away but never in the way.</div>
+<div>Batch paste and QR scan exist because sign-ups happen in clumps at the door, not one at a time.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 620, &quot;height&quot;: 1100}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'home', mode: 'one', email: '', name: '', source: 'At an event',
+    batch: '', luma: '', tpl: 'reminder', doneKind: 'one',
+    cName: '', cEmail: '', cPhone: '', cNotes: '', cTag: 'Venue', task: ''
+  };
+
+  nav(screen, extra) { this.setState(Object.assign({ screen: screen }, extra || {})); }
+
+  chip(active) {
+    return 'font-size:12.5px;padding:9px 13px;border-radius:999px;cursor:pointer;min-height:36px;'
+      + 'display:flex;align-items:center;border:1px solid ' + (active ? '#FFCFA6' : '#DAD5CB')
+      + ';background:' + (active ? '#FFE9D2' : '#fff')
+      + ';color:' + (active ? '#B34700' : '#6b6459')
+      + ';font-weight:' + (active ? '600' : '400') + ';';
+  }
+
+  tab(active) {
+    return 'flex:1;text-align:center;font-size:13.5px;font-weight:600;padding:11px;border-radius:11px;cursor:pointer;'
+      + 'min-height:44px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;'
+      + 'border:1px solid ' + (active ? '#1E1B17' : '#E4E0D8')
+      + ';background:' + (active ? '#1E1B17' : '#fff')
+      + ';color:' + (active ? '#fff' : '#6b6459') + ';';
+  }
+
+  cta(enabled) {
+    return 'border-radius:12px;padding:16px;text-align:center;font-size:15px;font-weight:600;min-height:44px;box-sizing:border-box;'
+      + (enabled
+        ? 'background:#1E1B17;color:#fff;cursor:pointer;'
+        : 'background:#E7E3DB;color:#a09889;cursor:default;');
+  }
+
+  emails() {
+    return this.state.batch.split(/[\s,;]+/).filter(function (e) { return e.indexOf('@') > 0; });
+  }
+
+  renderVals() {
+    var s = this.state, self = this;
+    var titles = {
+      home: ['Wednesday crew', 'Home', ''],
+      add: ['Mailing list', 'Add members', 'Cancel'],
+      scan: ['Mailing list', 'Scan sheet', 'Cancel'],
+      done: ['', 'Done', ''],
+      broadcast: ['412 members', 'Message the list', 'Cancel'],
+      luma: ['Community calendar', 'Add Luma event', 'Cancel'],
+      contact: ['Private · coordinators only', 'Save a contact', 'Cancel'],
+      agent: ['#coordinators', 'Discord agent 🤖', 'Cancel']
+    };
+    var t = titles[s.screen] || titles.home;
+    var validEmail = /.+@.+\..+/.test(s.email);
+    var list = this.emails();
+
+    var templates = [
+      { id: 'reminder', title: 'Event reminder', desc: 'Two days out — time, place, what to bring' },
+      { id: 'announce', title: 'New event announced', desc: 'Date, venue, RSVP link' },
+      { id: 'recap', title: 'Post-night recap', desc: 'Games played, photos, next date' }
+    ];
+    var previews = {
+      reminder: 'Subject: Wednesday at the Cambridge Library\n\nHi all — we\u2019re on for Wed Aug 5, 6–9pm, Lecture Hall. 34 RSVPs so far. Bring a game if you\u2019ve got a favorite.',
+      announce: 'Subject: Next board game night — Aug 5\n\nWe\u2019ve got the Lecture Hall at Cambridge Public Library, 6–9pm. Free, all levels. RSVP so we know how many tables to set.',
+      recap: 'Subject: Last night was a good one\n\nThanks to the 38 of you who came out. Heavy Wingspan energy. Photos below — next up Aug 5.'
+    };
+
+    var doneCopy = {
+      one: ['Invite sent', (s.name || s.email || 'They') + ' will get a Google Group confirmation in a minute.'],
+      batch: ['Invited ' + (list.length || 0) + ' people', 'Google Group confirmations are on the way. Anyone already on the list was skipped.'],
+      scan: ['Invited 3 people', 'Pulled from the sign-up sheet and sent to the Google Group.'],
+      send: ['Message sent', 'Delivered to 412 members. It\u2019ll also show up in the group archive.'],
+      luma: ['Event added', 'Tabletop RPG One-Shots now shows on our community calendar.'],
+      contact: ['Contact saved 📇', (s.cName || 'They') + ' is in the coordinator address book. No emails sent.'],
+      task: ['Handed off 🤖', 'The agent picked it up and will post in #coordinators when it\u2019s done.']
+    };
+    var dc = doneCopy[s.doneKind] || doneCopy.one;
+
+    return {
+      headerKicker: t[0], headerTitle: t[1], headerAction: t[2],
+      isHome: s.screen === 'home', isAdd: s.screen === 'add', isScan: s.screen === 'scan',
+      isDone: s.screen === 'done', isBroadcast: s.screen === 'broadcast', isLuma: s.screen === 'luma',
+      isOne: s.mode === 'one', isBatch: s.mode === 'batch',
+
+      goHome: function () { self.nav('home'); },
+      goAdd: function () { self.setState({ screen: 'add', mode: 'one', email: '', name: '', batch: '' }); },
+      goScan: function () { self.nav('scan'); },
+      goBroadcast: function () { self.nav('broadcast'); },
+      goLuma: function () { self.setState({ screen: 'luma', luma: '' }); },
+      goDoneSend: function () { self.nav('done', { doneKind: 'send' }); },
+      goDoneLuma: function () { self.nav('done', { doneKind: 'luma' }); },
+      setModeOne: function () { self.setState({ mode: 'one' }); },
+      setModeBatch: function () { self.setState({ mode: 'batch' }); },
+
+      tabOneStyle: this.tab(s.mode === 'one'),
+      tabBatchStyle: this.tab(s.mode === 'batch'),
+
+      email: s.email, name: s.name, batch: s.batch, luma: s.luma,
+      onEmail: function (e) { self.setState({ email: e.target.value }); },
+      onName: function (e) { self.setState({ name: e.target.value }); },
+      onBatch: function (e) { self.setState({ batch: e.target.value }); },
+      onLuma: function (e) { self.setState({ luma: e.target.value }); },
+      hasLuma: s.luma.trim().length > 3,
+
+      sources: ['At an event', 'Discord', 'Friend referral', 'Website form'].map(function (label) {
+        return {
+          label: label, style: self.chip(s.source === label),
+          pick: function () { self.setState({ source: label }); }
+        };
+      }),
+
+      submitLabel: validEmail ? 'Send Google Group invite' : 'Enter an email',
+      submitStyle: this.cta(validEmail),
+      submitOne: function () { if (validEmail) self.nav('done', { doneKind: 'one' }); },
+
+      batchCount: list.length ? list.length + ' valid addresses' : 'Nothing pasted yet',
+      batchDupes: list.length > 2 ? '2 already on the list' : '',
+      batchSubmitLabel: list.length ? 'Invite ' + list.length + ' people' : 'Paste some emails',
+      batchSubmitStyle: this.cta(list.length > 0),
+      submitBatch: function () { if (list.length) self.nav('done', { doneKind: 'batch' }); },
+
+      scanned: [
+        { name: 'Priya Raman', email: 'priya.raman@gmail.com' },
+        { name: 'Dev Okonkwo', email: 'dev.okonkwo@fastmail.com' },
+        { name: 'Marta Lein', email: 'mlein@northeastern.edu' }
+      ],
+      scanSubmitStyle: this.cta(true),
+      submitScan: function () { self.nav('done', { doneKind: 'scan' }); },
+
+      templates: templates.map(function (tp) {
+        var active = s.tpl === tp.id;
+        return {
+          title: tp.title, desc: tp.desc,
+          style: 'background:#fff;border-radius:14px;padding:14px 16px;cursor:pointer;display:flex;flex-direction:column;gap:3px;min-height:44px;border:1px solid '
+            + (active ? '#1E1B17' : '#E4E0D8') + ';',
+          pick: function () { self.setState({ tpl: tp.id }); }
+        };
+      }),
+      preview: previews[s.tpl],
+
+      doneTitle: dc[0], doneBody: dc[1],
+
+      isContact: s.screen === 'contact', isAgent: s.screen === 'agent',
+      goContact: function () { self.setState({ screen: 'contact', cName: '', cEmail: '', cPhone: '', cNotes: '' }); },
+      goAgentPlain: function () { self.setState({ screen: 'agent', task: '' }); },
+      handoffAdd: function () { self.setState({ screen: 'agent', task: 'Add everyone who reacted 🎲 to the last #announcements post to the mailing list.' }); },
+      handoffBatch: function () { self.setState({ screen: 'agent', task: 'Take the emails I pasted, drop anyone already on the list, and invite the rest.' }); },
+      handoffSend: function () { self.setState({ screen: 'agent', task: 'Finish this reminder draft and send it to the list Monday at 9am.' }); },
+      handoffLuma: function () { self.setState({ screen: 'agent', task: 'Watch Luma for Boston tabletop events this week and add anything relevant to our calendar.' }); },
+      handoffContact: function () { self.setState({ screen: 'agent', task: 'Email ' + (s.cName || 'this contact') + ' about hosting a night in September.' }); },
+
+      cName: s.cName, cEmail: s.cEmail, cPhone: s.cPhone, cNotes: s.cNotes,
+      onCName: function (e) { self.setState({ cName: e.target.value }); },
+      onCEmail: function (e) { self.setState({ cEmail: e.target.value }); },
+      onCPhone: function (e) { self.setState({ cPhone: e.target.value }); },
+      onCNotes: function (e) { self.setState({ cNotes: e.target.value }); },
+      cTags: ['🏛️ Venue', '💰 Sponsor', '🎁 Vendor', '🙋 Volunteer'].map(function (label) {
+        return { label: label, style: self.chip(s.cTag === label), pick: function () { self.setState({ cTag: label }); } };
+      }),
+      contactSubmitLabel: s.cName.trim() ? 'Save contact 📇' : 'Add a name first',
+      contactSubmitStyle: this.cta(s.cName.trim().length > 0),
+      submitContact: function () { if (s.cName.trim()) self.nav('done', { doneKind: 'contact' }); },
+      contacts: [
+        { icon: '🏛️', name: 'Dana Whitfield · Cambridge Library', note: 'Books the lecture hall. 3 weeks notice, no food past 8pm.' },
+        { icon: '🎁', name: 'Trident Booksellers', note: 'Lends 6 games per night if we credit them in the recap.' },
+        { icon: '💰', name: 'Marco @ Somerville Brewing', note: 'Covered snacks in June. Ask again in the fall.' }
+      ],
+
+      task: s.task,
+      onTask: function (e) { self.setState({ task: e.target.value }); },
+      suggestions: [
+        '🎲 Pull Discord reactions onto the list',
+        '📣 Draft Monday\u2019s reminder',
+        '🗓️ Sweep Luma for community events'
+      ].map(function (label) {
+        return { label: label, pick: function () { self.setState({ task: label.replace(/^\S+\s/, '') }); } };
+      }),
+      taskSubmitLabel: s.task.trim() ? 'Hand it to the agent 🤖' : 'Describe the task',
+      taskSubmitStyle: this.cta(s.task.trim().length > 0),
+      submitTask: function () { if (s.task.trim()) self.nav('done', { doneKind: 'task' }); },
+      hasQueue: true,
+      agentSubtitle: '2 tasks running, 1 waiting on you',
+      queue: [
+        { icon: '⏳', what: 'Adding 7 Discord reactors to the mailing list', status: 'Running · started 20 min ago' },
+        { icon: '✋', what: 'Reminder email for Aug 5 — drafted, needs your OK', status: 'Waiting on you' },
+        { icon: '✅', what: 'Added "Chess in the Park" to the calendar', status: 'Done · posted in #coordinators' }
+      ],
+
+      recent: [
+        { when: 'Today', what: '4 people added after the Somerville meetup' },
+        { when: 'Mon', what: 'Reminder sent — 412 members' },
+        { when: 'Jul 24', what: 'Added "Chess in the Park" to the calendar' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
