@@ -37,5 +37,8 @@ bad wifi.
   were removed; service-worker offline caching is replaced by the bundled APK.
 - Builds need the Rust + Android toolchains (NDK, cargo android targets)
   instead of a static web host.
+- The spec's "fonts load from Google Fonts" asset note does not apply: IBM Plex
+  is bundled from `@fontsource` so the app renders offline, and the WebView CSP
+  in `tauri.conf.json` allows no remote font or style origins.
 - iOS is out of scope for this shell; the spec's iPhone-bezel design files are
   viewing scaffolding only.
