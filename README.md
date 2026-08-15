@@ -290,7 +290,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure path for Google Group invites (rate limits, permission errors, already-a-member). "Already a member" should read as success, not error.
+- Failure paths for the flows that do hit a network. The mailing-list add is not one of them — it sends nothing itself, and a cancelled handoff leaves the add pending (`docs/adr/0002-self-serve-join-link.md`).
 - Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
 - Empty state for the recent-activity and agent-queue lists.
 
@@ -316,7 +316,7 @@ Prototype state, all local:
 
 **Real data needed.** Everything numeric or list-shaped in the prototype is hardcoded and must come from a source of truth:
 
-- **Google Groups API** — member count (412), add/invite member, duplicate check. Requires a service account with Directory API access and domain delegation, or a coordinator OAuth flow. This is the main integration risk; scope it first.
+- **Mailing list** — member count (412) and the duplicate check still need a source of truth. Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 hands a self-serve join link to the coordinator's own apps instead. See `docs/adr/0002-self-serve-join-link.md`.
 - **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
 - **Luma** — fetch event metadata from a pasted URL; add to the group calendar; dedupe against existing entries.
 - **Contacts** — private store, coordinators-only. Small enough for a simple hosted table; must not be readable by members.
@@ -382,8 +382,10 @@ Prototype state, all local:
 
 No image assets. All iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
 
-Fonts load from Google Fonts:
+The prototype loads fonts from Google Fonts:
 `https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap`
+
+The app bundles the same faces instead (`@fontsource`, imported in `src/main.js`) — it is offline-first and its CSP allows no remote origins.
 
 ## Open Questions for the Coordinators
 

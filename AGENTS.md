@@ -17,7 +17,8 @@ composes the join-link message and hands it to the coordinator's own apps
 `docs/adr/0002-self-serve-join-link.md`. The single swap point for a future
 mechanism is `handOff()` in `src/backend.js`, fed by the store-and-forward
 queue in `src/queue.js`. The other flows (message/luma/contact/agent) render
-as stubs; the batch dupe check uses an empty local roster stub.
+as stubs; the batch dupe check uses an empty local roster stub. Screen 3
+(scan) is deliberately unbuilt — it hangs on README open question 1.
 
 ## Build
 
