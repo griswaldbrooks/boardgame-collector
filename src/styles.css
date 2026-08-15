@@ -39,7 +39,7 @@ body {
 .header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  padding: calc(8px + env(safe-area-inset-top)) 20px 12px;
+  padding: 8px 20px 12px;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
