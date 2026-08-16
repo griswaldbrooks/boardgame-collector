@@ -37,7 +37,10 @@ Luma's own UI:
 
 - **Preview** — one read-only GET of the pasted link's public page, parsed
   JSON-LD first, then OpenGraph, then the embedded page state; every field
-  degrades on its own. The stable `evt-…` id and the canonical
+  degrades on its own — except the "is this an event page at all?" question,
+  which only the JSON-LD `Event` block or the page-state event object can
+  answer: calendar and user pages serve an `og:title` too, so OpenGraph alone
+  never earns a preview. The stable `evt-…` id and the canonical
   `https://luma.com/<slug>` URL are extracted for dedupe. Fetches go through
   Tauri's Rust-side HTTP plugin (`tauri-plugin-http`), because `luma.com`
   sends no CORS headers and the WebView CSP allows no remote origins; the

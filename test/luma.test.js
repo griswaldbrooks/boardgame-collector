@@ -74,6 +74,7 @@ const FULL_PAGE = `<!doctype html>
 
 test("full page: every field extracted, dedupe id and canonical URL included", () => {
   const p = parseEventPage(FULL_PAGE);
+  assert.equal(p.isEvent, true);
   assert.equal(p.title, "Fixture Game Night");
   assert.equal(p.startAt, "2026-09-03T18:30:00.000-04:00"); // JSON-LD wins
   assert.equal(p.timezone, "America/New_York");
@@ -91,8 +92,10 @@ const OG_ONLY_PAGE = `<html><head>
 <meta property="og:url" content="https://luma.com/ogonly77">
 </head><body></body></html>`;
 
-test("OG-only page degrades to a title, image, and URL — nothing else", () => {
+test("OG-only page degrades to a title, image, and URL — but is not an event page", () => {
   const p = parseEventPage(OG_ONLY_PAGE);
+  // OG alone can't tell an event from a calendar page: the screen refuses it.
+  assert.equal(p.isEvent, false);
   assert.equal(p.title, "OG Only Event"); // " · Luma" suffix stripped
   assert.equal(p.cover, "https://images.example.test/og.png");
   assert.equal(p.url, "https://luma.com/ogonly77");
@@ -112,6 +115,7 @@ const LD_ONLY_PAGE = `<script type="application/ld+json">
 
 test("JSON-LD-only page still yields title, wall time, and city-level venue", () => {
   const p = parseEventPage(LD_ONLY_PAGE);
+  assert.equal(p.isEvent, true);
   assert.equal(p.title, "City Level Event");
   assert.equal(p.venue, "Boston, MA");
   assert.equal(formatWhen(p.startAt, p.timezone), "Thu Oct 1 · 7:00 pm");
@@ -129,14 +133,29 @@ test("page state venue wins when the host published a real address", () => {
   assert.equal(p.venue, "The Back Room");
 });
 
-test("a non-event page (calendar, user page, error page) extracts nothing", () => {
-  const p = parseEventPage(`<html><body><script id="__NEXT_DATA__" type="application/json">
+// A real calendar page serves an og:title, so the title alone can't tell it
+// apart from an event — only the absence of an event object can.
+test("a non-event page reads as not-an-event even when it serves an og:title", () => {
+  const p = parseEventPage(`<html><head>
+    <meta property="og:title" content="Fixture Community Calendar · Luma">
+    <meta property="og:url" content="https://luma.com/fixturecal">
+    </head><body><script id="__NEXT_DATA__" type="application/json">
     {"props":{"pageProps":{"initialData":{"data":{"featured_items":[]}}}}}</script></body></html>`);
-  assert.equal(p.title, null);
+  assert.equal(p.isEvent, false);
+  assert.equal(p.title, "Fixture Community Calendar");
   assert.equal(p.startAt, null);
-  assert.equal(p.url, null);
+  assert.equal(parseEventPage("").isEvent, false);
   assert.equal(parseEventPage("").title, null);
   assert.equal(parseEventPage("garbage, not html at all").title, null);
+});
+
+test("an empty og:title yields a null title, never an empty string", () => {
+  const p = parseEventPage(`<html><head><meta property="og:title" content="">
+    </head><body><script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"event":{
+      "api_id":"evt-NamelessFake12","url":"nameless9","name":"  "}}}}}}</script></body></html>`);
+  assert.equal(p.isEvent, true);
+  assert.equal(p.title, null);
 });
 
 test("a malformed JSON-LD block does not sink a valid sibling", () => {

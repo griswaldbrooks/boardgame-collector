@@ -9,7 +9,6 @@ import { enqueue, forward } from "./queue.js";
 import {
   LIST_MAIL,
   handOffBroadcast,
-  calendarUrl,
   fetchEventPreview,
   fetchCalendarEvents,
   handOffLuma,
@@ -459,13 +458,26 @@ function broadcastScreen() {
 // read-only GETs of public pages for preview + best-effort dedupe; the add
 // itself is a handoff into Luma's own Add Event panel — the app never writes.
 
+// Every field degrades on its own, so an event page can arrive without a
+// usable name — one fallback for every place the title reaches the screen,
+// the activity log, or the Done copy.
+const lumaTitle = (p) => p?.title || "The event";
+
+const LUMA_ERROR = {
+  offline: "You're offline — pulling a preview needs a connection.",
+  // A calendar or user page reads fine and even serves an og:title, so say
+  // what's actually wrong instead of blaming the connection.
+  notEvent: "That link isn't a Luma event page — paste an event link.",
+  generic: "Couldn't pull a preview — check the link. Private events can't be added to a community calendar.",
+};
+
 function lumaPreviewCard(p) {
   const meta = [formatWhen(p.startAt, p.timezone), p.venue].filter(Boolean).join(" · ");
   return h(
     "div",
     { class: "card" },
     sectionLabel("Pulled from Luma"),
-    h("div", { class: "luma-title" }, p.title),
+    h("div", { class: "luma-title" }, lumaTitle(p)),
     meta ? h("div", { class: "luma-meta" }, meta) : null,
     p.tags.length
       ? h(
@@ -484,7 +496,7 @@ function lumaScreen() {
   let timer = null;
   let phase = "idle"; // idle | loading | error | ready
   let dedupe = "idle"; // idle | checking | miss | hit | unreadable
-  let offline = false;
+  let errorKind = null; // offline | notEvent | generic
   let preview = null;
   let fetched = null; // { url, preview, dedupe } — one-URL cache, no refetch
 
@@ -496,7 +508,6 @@ function lumaScreen() {
       if (phase === "loading") return "Pulling preview…";
       if (phase === "error") return "No preview to add";
       if (phase === "ready") {
-        if (dedupe === "checking") return "Checking our calendar…";
         if (dedupe === "hit") return "Already on our calendar";
         return "Add to our calendar";
       }
@@ -515,9 +526,7 @@ function lumaScreen() {
         h(
           "div",
           { class: "card luma-note luma-error" },
-          offline
-            ? "You're offline — pulling a preview needs a connection."
-            : "Couldn't pull a preview — check the link. Private events can't be added to a community calendar.",
+          LUMA_ERROR[errorKind] ?? LUMA_ERROR.generic,
         ),
       );
     } else if (phase === "ready" && preview) {
@@ -532,7 +541,7 @@ function lumaScreen() {
               "div",
               { class: "luma-already-copy" },
               h("div", { class: "luma-already-title" }, "Already on our calendar"),
-              h("div", { class: "luma-already-sub" }, `${preview.title} is listed with the upcoming events.`),
+              h("div", { class: "luma-already-sub" }, `${lumaTitle(preview)} is listed with the upcoming events.`),
             ),
           ),
         );
@@ -548,16 +557,14 @@ function lumaScreen() {
 
   async function run(url) {
     const my = seq;
-    dedupe = calendarUrl() ? "checking" : "unreadable";
+    dedupe = "checking";
     repaint();
-    const [pRes, cRes] = await Promise.allSettled([
-      fetchEventPreview(url),
-      dedupe === "checking" ? fetchCalendarEvents() : Promise.reject(new Error("unconfigured")),
-    ]);
+    const [pRes, cRes] = await Promise.allSettled([fetchEventPreview(url), fetchCalendarEvents()]);
     if (my !== seq) return; // a newer input superseded this fetch
-    if (pRes.status === "rejected" || (!pRes.value.title && !pRes.value.startAt)) {
-      // network failure, or the page is not a public event
-      offline = pRes.status === "rejected" && !navigator.onLine;
+    if (pRes.status === "rejected" || !pRes.value.isEvent) {
+      // network failure, or a readable page that simply isn't an event
+      errorKind =
+        pRes.status === "rejected" ? (navigator.onLine ? "generic" : "offline") : "notEvent";
       phase = "error";
       repaint();
       return;
@@ -577,7 +584,7 @@ function lumaScreen() {
   function scheduleCheck() {
     seq++;
     clearTimeout(timer);
-    offline = false;
+    errorKind = null;
     notice.textContent = "";
     const url = normalizeLumaUrl(state.luma);
     if (!url) {
@@ -614,8 +621,8 @@ function lumaScreen() {
       submit.update();
       return;
     }
-    addActivity(`Added "${preview.title}" to the calendar`);
-    go("done", { done: { kind: "luma", title: preview.title } });
+    addActivity(`Added "${lumaTitle(preview)}" to the calendar`);
+    go("done", { done: { kind: "luma", title: lumaTitle(preview) } });
   }
 
   return shell(

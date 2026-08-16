@@ -55,10 +55,14 @@ function nextData(html) {
   }
 }
 
-// Preview of a pasted event link. Returns { title, startAt, timezone, venue,
-// tags, cover, eventId, url } with any field null/empty when its source is
-// missing — including all-null when the page is not a public event (bad
-// link, private event, or a calendar/user page pasted by mistake).
+const trimmed = (s) => (typeof s === "string" && s.trim() ? s.trim() : null);
+
+// Preview of a pasted event link. Returns { isEvent, title, startAt, timezone,
+// venue, tags, cover, eventId, url } with any field null/empty when its source
+// is missing. `isEvent` is the one non-degrading field: only an actual event
+// page carries a JSON-LD Event block or a page-state event object, so a
+// calendar/user page pasted by mistake reads as not-an-event even though it
+// serves an og:title.
 export function parseEventPage(html) {
   const ld = jsonLdEvent(html);
   const og = ogTags(html);
@@ -73,7 +77,11 @@ export function parseEventPage(html) {
     || null;
 
   return {
-    title: ld?.name ?? og.title?.replace(/\s*·\s*Luma$/i, "") ?? ev?.name ?? null,
+    isEvent: Boolean(ld || ev),
+    title:
+      trimmed(ld?.name)
+      ?? trimmed(og.title?.replace(/\s*·\s*Luma$/i, ""))
+      ?? trimmed(ev?.name),
     startAt: ld?.startDate ?? ev?.start_at ?? null,
     // IANA zone only comes from the page state; JSON-LD carries the event's
     // wall time as an offset instead (rendered without a zone name).
@@ -98,7 +106,7 @@ export function formatWhen(startAt, timezone) {
   let parts;
   if (m[6] && m[6] !== "Z") {
     // Wall time is right there in the string — no conversion needed.
-    parts = { weekday: null, month: null, day: +m[3], hour: +m[4], minute: m[5], iso: m[0] };
+    parts = { weekday: null, month: null, day: +m[3], hour: +m[4], minute: m[5] };
   } else {
     try {
       const fmt = new Intl.DateTimeFormat("en-US", {
@@ -118,7 +126,7 @@ export function formatWhen(startAt, timezone) {
   }
   const hour12 = ((parts.hour % 12) || 12);
   const minute = String(parts.minute).padStart(2, "0");
-  const ampm = parts.hour < 12 || parts.dayPeriod ? (parts.dayPeriod ?? (parts.hour < 12 ? "am" : "pm")) : "pm";
+  const ampm = parts.dayPeriod ?? (parts.hour < 12 ? "am" : "pm");
   return `${parts.weekday} ${parts.month} ${parts.day} · ${hour12}:${minute} ${String(ampm).toLowerCase()}`;
 }
 

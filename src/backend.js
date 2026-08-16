@@ -57,15 +57,11 @@ export const GROUP_CALENDAR = {
   id: "cal-v6H3Jm84BrwuOYb",
 };
 
-export function calendarUrl() {
-  return GROUP_CALENDAR.slug ? `https://luma.com/${GROUP_CALENDAR.slug}` : null;
-}
+export const calendarUrl = () => `https://luma.com/${GROUP_CALENDAR.slug}`;
 
 // The admin "Add Existing Luma Event" panel the group's documented flow uses;
 // the coordinator is signed in there, so the handoff lands two taps from done.
-export function calendarManageUrl() {
-  return GROUP_CALENDAR.id ? `https://luma.com/calendar/manage/${GROUP_CALENDAR.id}` : calendarUrl();
-}
+export const calendarManageUrl = () => `https://luma.com/calendar/manage/${GROUP_CALENDAR.id}`;
 
 // A browser fetch of luma.com dies on CORS (no Access-Control-Allow-Origin),
 // so inside Tauri the request goes through the Rust-side http plugin
@@ -99,12 +95,10 @@ export async function fetchEventPreview(url) {
 }
 
 // Upcoming events embedded in the group calendar's public page — the
-// best-effort dedupe read. Throws when the calendar is unconfigured or the
-// page can't be read; the screen then says so and never blocks the add.
+// best-effort dedupe read. Throws when the page can't be read; the screen
+// then says so and never blocks the add.
 export async function fetchCalendarEvents() {
-  const url = calendarUrl();
-  if (!url) throw new Error("group calendar not configured");
-  return parseCalendarEvents(await fetchLumaPage(url));
+  return parseCalendarEvents(await fetchLumaPage(calendarUrl()));
 }
 
 // Hand the confirmed event to Luma's own Add Event panel: the event URL goes
@@ -114,15 +108,13 @@ export async function fetchCalendarEvents() {
 // a funded Luma Plus upgrade replaces this function with
 // POST /v1/calendars/events/add without touching the screen.
 export async function handOffLuma(preview) {
-  const target = calendarManageUrl();
-  if (!target) throw new Error("group calendar not configured");
   try {
     await navigator.clipboard.writeText(preview.url);
   } catch (err) {
     // Not fatal: the coordinator can still type the link into Luma's panel.
     console.warn(`[luma] clipboard copy failed: ${err?.message ?? err}`);
   }
-  await openExternal(target);
+  await openExternal(calendarManageUrl());
 }
 
 // The opener/http JS APIs are only IPC wrappers; importing them statically
