@@ -205,15 +205,17 @@ Row labels (shown to the user, not the pre-fill):
 **Purpose:** keep the community calendar current from a link someone dropped in chat.
 
 - **Input card:** label `Luma link`, input in IBM Plex Mono, placeholder `lu.ma/…`.
-- **Preview card** — renders once the field has more than 3 characters:
+- **Preview card** — renders once the pasted text is a Luma link, from a read of that event's own public page. Every field degrades on its own: whatever Luma serves is what shows (title falls back to `The event`, the meta line drops the parts that are missing, pills are the event's own categories).
   - Section label `Pulled from Luma`
   - Title 16px weight 700 `#222`: `Tabletop RPG One-Shots @ Trident`
   - Meta 13.5px `#555`: `Thu Aug 13 · 7:00 pm · Trident Booksellers`
-  - Tag pills, IBM Plex Mono 11px, `border-radius 999px`, `padding 4px 10px`: `community` (`#5B3BA8` on `#EDE6F7`, border `#DCCFF0`) and `rpg` (`#6B6459` on `#F2EFE9`, border `#E4E0D8`).
-- **CTA:** `Add to our calendar`.
+  - Tag pills, IBM Plex Mono 11px, `border-radius 999px`, `padding 4px 10px`: first pill `#5B3BA8` on `#EDE6F7`, border `#DCCFF0`; the rest `#6B6459` on `#F2EFE9`, border `#E4E0D8`.
+- **Loading / error card** in the preview's place: spinner + `Pulling preview…` while the read is in flight; on failure one line saying which failure it was — offline, not an event link, or couldn't-pull (private events read as the last).
+- **Duplicate check** against the group calendar, run alongside the preview. A hit renders below the preview in success tone (`Already on our calendar`), not as an error. An unreadable calendar shows `Couldn't check our calendar — you can still add it there.` and never blocks the add.
+- **CTA:** `Add to our calendar`; disabled labels `Paste a Luma link`, `Pulling preview…`, `No preview to add`, and `Already on our calendar` on a duplicate hit.
 - **Agent handoff row.**
 
-**Production note:** fetch real event metadata from the pasted URL and show a loading state. **Check for duplicates against events already on the calendar** — this was flagged as likely necessary and is not in the prototype.
+**Add mechanism:** the app never writes to Luma. The CTA copies the event URL to the clipboard and opens the group calendar's own *Add Existing Luma Event* panel in the coordinator's browser, where they are already signed in as an admin — they paste and confirm there. Both reads are read-only GETs of public pages, one per pasted link plus one calendar read per check. A funded Luma Plus key would replace `handOffLuma()`/`fetchCalendarEvents()` in `src/backend.js` and nothing else (`docs/adr/0004-credential-free-luma-handoff.md`).
 
 ### 6. Save a contact
 
@@ -271,7 +273,7 @@ Copy per outcome:
 | Batch add | `Invited <n> people` | `Your message with the join link is on the way. Anyone already on the list was skipped.` |
 | Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
 | Message sent | `Message sent` | `Your mail app has the message — send it there to reach <n> members / the list. It'll also show up in the group archive.` |
-| Luma added | `Event added` | `Tabletop RPG One-Shots now shows on our community calendar.` |
+| Luma added | `Finish adding in Luma` | `Luma opens at our calendar's add-event panel. Paste the link there — <title> shows on our calendar once it's confirmed.` |
 | Contact saved | `Contact saved 📇` | `<name> is in the coordinator address book. No emails sent.` |
 | Agent task | `Handed off 🤖` | `The agent picked it up and will post in #coordinators when it's done.` |
 
@@ -292,7 +294,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; a cancelled add handoff leaves the add pending, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`).
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; a cancelled add handoff leaves the add pending, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`). The Luma preview *is* one: its loading, offline, and unreadable-link states ship with the flow (`docs/adr/0004-credential-free-luma-handoff.md`).
 - Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
 - Empty state for the recent-activity and agent-queue lists.
 
@@ -320,7 +322,7 @@ Prototype state, all local:
 
 - **Mailing list** — member count (412) and the duplicate check still need a source of truth. Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 hands a self-serve join link to the coordinator's own apps instead. See `docs/adr/0002-self-serve-join-link.md`.
 - **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
-- **Luma** — fetch event metadata from a pasted URL; add to the group calendar; dedupe against existing entries.
+- **Luma** — no integration to build for v1: the metadata and the dedupe both come from read-only GETs of public lu.ma pages, and the add is a handoff into Luma's own panel rather than a write. The group's calendar (`GROUP_CALENDAR` in `src/backend.js`) is the one piece of configuration. See `docs/adr/0004-credential-free-luma-handoff.md`.
 - **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md`.
 - **Discord** — bot in the coordinators server; task queue with status; approval callbacks for anything that emails or spends.
 - **Recent activity** — an append-only log of coordinator actions, shown newest-first with relative day labels (`Today`, `Mon`, `Jul 24`).
@@ -392,7 +394,7 @@ The app bundles the same faces instead (`@fontsource`, imported in `src/main.js`
 ## Open Questions for the Coordinators
 
 1. Is QR/OCR scanning at the door real, or is batch paste enough? (Affects whether screen 3 ships at all.)
-2. Should Luma import check for duplicates against the existing calendar? (Recommended yes.)
+2. ~~Should Luma import check for duplicates against the existing calendar?~~ Answered yes — v1 ships a best-effort check against the calendar's public page, and a hit reads as already-on-calendar rather than an error (`docs/adr/0004-credential-free-luma-handoff.md`).
 3. What exactly may the Discord agent do unsupervised, and what always needs approval? The prototype assumes anything that emails members or spends money is gated.
 4. How many coordinators need access, and does the contact book need per-person privacy or is shared fine?
 
