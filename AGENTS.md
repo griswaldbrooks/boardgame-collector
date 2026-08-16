@@ -24,10 +24,10 @@ retry, and a parked broadcast must not block join-link handoffs at the queue
 head. There is no live member count (consumer Groups have no API): the empty
 local roster stub drives the broadcast CTA/kicker once CSV roster sync lands.
 Flow 4 (save a contact) keeps a local-only contact book in `src/contacts.js`
-(same localStorage approach as the queue; nothing leaves the device — hosted
-sharing is README open question 4). The luma/agent flows render as stubs; the
-batch dupe check uses the same empty roster stub. Screen 3 (scan) is
-deliberately unbuilt — it hangs on README open question 1.
+(same localStorage approach as the queue; nothing leaves the device — see
+`docs/adr/0003-device-local-contact-book.md`). The luma/agent flows render as
+stubs; the batch dupe check uses the same empty roster stub. Screen 3 (scan)
+is deliberately unbuilt — it hangs on README open question 1.
 
 ## Build
 

@@ -1,0 +1,59 @@
+# 3. v1 keeps the contact book device-local, not in a hosted table
+
+Date: 2026-08-15
+
+## Status
+
+Accepted (captain decision, 2026-08-15).
+
+## Context
+
+The contact book (`README.md` section 6) holds coordinators' private details
+of real people — names, emails, phone numbers, and free-text notes about who
+someone is. The screen leads with a privacy banner: "Private to coordinators.
+Nothing here touches the mailing list or gets emailed."
+
+The handoff spec sketches the eventual store as "a simple hosted table"
+readable by the coordinators but not by members. How many coordinators need
+access, and whether the book needs per-person privacy or shared is fine, is
+README Open Question 4 — captain-gated future work, unanswered at the time of
+this build.
+
+A promise made in a banner is only worth what the architecture enforces. As
+long as the store is device-local, "nothing here touches the mailing list or
+gets emailed" is true by construction rather than by review discipline.
+
+## Decision
+
+v1's store is device-local only:
+
+- `src/contacts.js` persists to the `bgn.contacts.v1` localStorage key — the
+  same on-device persistence approach as the offline add queue, so contacts
+  survive kill/relaunch.
+- **No server, no sync, no network.** Nothing in the save-a-contact path makes
+  a network call.
+- Android backup is excluded so the store cannot leave the device even by the
+  platform's own copying: `android:allowBackup="false"` plus
+  `res/xml/data_extraction_rules.xml` excluding the WebView storage on the
+  generated manifest (captain decision in this same run — see `AGENTS.md` for
+  the hand-patched-generated-file list).
+
+## Rejected for v1
+
+- **The hosted shared table** the spec sketches — it is the right answer once
+  the coordinators say how many of them need access and whether the book is
+  shared or per-person. Revisit when README Open Question 4 lands; the price
+  of guessing early is holding real people's private details on a server no
+  one has scoped yet.
+
+## Consequences
+
+- `src/contacts.js` is the single swap point: a future hosted mechanism
+  replaces only that module's load/save, the way `handOff()` in
+  `src/backend.js` is the swap point for the mailing-list mechanism
+  (`docs/adr/0002-self-serve-join-link.md`).
+- Saving a contact must never touch the mailing-list queue/roster or any
+  mailing-list surface. That separation is what the privacy banner asserts.
+- Contacts need no store-and-forward queue. The add queue exists because a
+  handoff can be cancelled and retried later; nothing about a contact is ever
+  forwarded, so there is nothing to retry.
