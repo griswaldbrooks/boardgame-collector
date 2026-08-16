@@ -319,8 +319,7 @@ function broadcastScreen() {
     class: "preview-area",
     "aria-label": "Preview",
     value: PREVIEWS[state.tpl],
-    oninput: (e) => {
-      state.draft = e.target.value;
+    oninput: () => {
       grow();
       submit.update();
     },
@@ -342,6 +341,11 @@ function broadcastScreen() {
   );
 
   // Lightweight confirm before a whole-list send (spec production note).
+  const sendBtn = h(
+    "button",
+    { class: "cta", type: "button", onclick: sendBroadcast },
+    "Open in my mail app",
+  );
   const confirmBlock = h(
     "div",
     { class: "stack" },
@@ -356,11 +360,7 @@ function broadcastScreen() {
       ),
       h("div", { class: "confirm-notice" }),
     ),
-    h(
-      "button",
-      { class: "cta", type: "button", onclick: sendBroadcast },
-      "Open in my mail app",
-    ),
+    sendBtn,
     h(
       "button",
       { class: "btn-secondary", type: "button", onclick: () => setConfirming(false) },
@@ -369,12 +369,21 @@ function broadcastScreen() {
   );
 
   async function sendBroadcast() {
+    if (sendBtn.disabled) return;
+    // The preview stays editable behind the confirm block, so re-check the
+    // same emptiness guard the CTA enforces.
+    if (!area.value.trim()) {
+      setConfirming(false);
+      return;
+    }
+    sendBtn.disabled = true;
     try {
       await handOffBroadcast(splitDraft(area.value));
     } catch (err) {
       console.warn(`[broadcast] mail handoff failed: ${err?.message ?? err}`);
       confirmBlock.querySelector(".confirm-notice").textContent =
         "Couldn't open your mail app. Try again.";
+      sendBtn.disabled = false;
       return;
     }
     addActivity(`Message sent to ${reach}`);
@@ -395,8 +404,7 @@ function broadcastScreen() {
         type: "button",
         onclick: () => {
           state.tpl = t.id;
-          state.draft = null; // spec: preview content swaps with selection
-          area.value = PREVIEWS[t.id];
+          area.value = PREVIEWS[t.id]; // spec: preview content swaps with selection
           grow();
           refresh();
         },
@@ -410,6 +418,9 @@ function broadcastScreen() {
     submit.update();
   }
   refresh();
+  // The screen tree is built detached, so scrollHeight is only meaningful once
+  // it is in the document — size the initial template copy on the next frame.
+  requestAnimationFrame(grow);
 
   return shell(
     count ? `${count} members` : "Mailing list",

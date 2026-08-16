@@ -8,8 +8,6 @@ export const state = {
   source: "At an event",
   batch: "",
   tpl: "reminder", // reminder | announce | recap
-  // Edited broadcast draft; null = "the current template's default preview".
-  draft: null,
 };
 
 // Entering the add screen resets per spec "Field clearing": email, name,
@@ -23,8 +21,8 @@ export function resetAdd() {
 }
 
 // Entering the broadcast screen resets the template selection to its default
-// (state table: tpl defaults to reminder) and drops any edited draft.
+// (state table: tpl defaults to reminder), which rebuilds the preview from the
+// template copy and so drops any edited draft.
 export function resetBroadcast() {
   state.tpl = "reminder";
-  state.draft = null;
 }
