@@ -52,7 +52,7 @@ Per-screen header values:
 | Home | `Wednesday crew` | `Home` | — |
 | Add to list | `Mailing list` | `Add members` | `Cancel` |
 | Scan | `Mailing list` | `Scan sheet` | `Cancel` |
-| Message | `412 members` | `Message the list` | `Cancel` |
+| Message | `<n> members` when the local roster has a count, else `Mailing list` | `Message the list` | `Cancel` |
 | Luma | `Community calendar` | `Add Luma event` | `Cancel` |
 | Contact | `Private · coordinators only` | `Save a contact` | `Cancel` |
 | Agent | `#coordinators` | `Agent 🤖` | `Cancel` |
@@ -189,14 +189,16 @@ Row labels (shown to the user, not the pre-fill):
   - `Event reminder` — Two days out — time, place, what to bring
   - `New event announced` — Date, venue, RSVP link
   - `Post-night recap` — Games played, photos, next date
-- **Preview card:** label `Preview` (12px weight 600 `#6B6459`), body 13.5px `#333`, `line-height 1.5`, `white-space: pre-wrap`. Content swaps with selection:
+- **Preview card:** label `Preview` (12px weight 600 `#6B6459`), body 13.5px `#333`, `line-height 1.5`, `white-space: pre-wrap`. It is a borderless textarea styled as that body text, so the draft is editable in place; picking a template replaces the draft with that template's copy. Content swaps with selection:
   - *Reminder:* `Subject: Wednesday at the Cambridge Library` / blank / `Hi all — we're on for Wed Aug 5, 6–9pm, Lecture Hall. 34 RSVPs so far. Bring a game if you've got a favorite.`
   - *Announce:* `Subject: Next board game night — Aug 5` / blank / `We've got the Lecture Hall at Cambridge Public Library, 6–9pm. Free, all levels. RSVP so we know how many tables to set.`
   - *Recap:* `Subject: Last night was a good one` / blank / `Thanks to the 38 of you who came out. Heavy Wingspan energy. Photos below — next up Aug 5.`
-- **CTA:** `Send to 412 members`.
+- **CTA:** `Send to <n> members` when the local roster has a count, else `Send to the list`; disabled label `Write something first` once the draft is empty. It opens a confirm step (`Send this message?` → `Open in my mail app` / `Keep editing`) before the send.
 - **Agent handoff row.**
 
-**Production note:** the preview should be editable before sending, and the member count must come from the live Google Group. A confirm step before a 400-person send is warranted.
+**Send mechanism:** confirming hands the edited draft to the coordinator's own mail app as a mailto to `bgn-wg@googlegroups.com` — mailing a Google Group's address *is* broadcasting to it, so the app sends nothing itself, same as the add flow (`docs/adr/0002-self-serve-join-link.md`).
+
+**Member count:** there is no live source — consumer `googlegroups.com` groups have no membership API. The count comes from the same local roster the batch dupe check uses (an empty stub until CSV roster sync exists), and the copy drops the number entirely when the roster has none.
 
 ### 5. Add a community Luma event
 
@@ -268,7 +270,7 @@ Copy per outcome:
 | Single add | `Invite sent` | `<name or email> will get your message with the join link.` |
 | Batch add | `Invited <n> people` | `Your message with the join link is on the way. Anyone already on the list was skipped.` |
 | Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
-| Message sent | `Message sent` | `Delivered to 412 members. It'll also show up in the group archive.` |
+| Message sent | `Message sent` | `Your mail app has the message — send it there to reach <n> members / the list. It'll also show up in the group archive.` |
 | Luma added | `Event added` | `Tabletop RPG One-Shots now shows on our community calendar.` |
 | Contact saved | `Contact saved 📇` | `<name> is in the coordinator address book. No emails sent.` |
 | Agent task | `Handed off 🤖` | `The agent picked it up and will post in #coordinators when it's done.` |
@@ -277,7 +279,7 @@ Copy per outcome:
 
 **Navigation.** Single stack, one `screen` value: `home | add | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
 
-**Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
+**Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `broadcast` resets `tpl` to `reminder`, which rebuilds the preview from the template copy and so drops any edited draft. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
 
 **Validation.**
 - Single email: `/.+@.+\..+/`. CTA disabled until it passes.
@@ -290,7 +292,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. The mailing-list add is not one of them — it sends nothing itself, and a cancelled handoff leaves the add pending (`docs/adr/0002-self-serve-join-link.md`).
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; a cancelled add handoff leaves the add pending, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`).
 - Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
 - Empty state for the recent-activity and agent-queue lists.
 
