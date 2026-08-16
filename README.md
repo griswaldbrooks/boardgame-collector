@@ -321,7 +321,7 @@ Prototype state, all local:
 - **Mailing list** — member count (412) and the duplicate check still need a source of truth. Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 hands a self-serve join link to the coordinator's own apps instead. See `docs/adr/0002-self-serve-join-link.md`.
 - **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
 - **Luma** — fetch event metadata from a pasted URL; add to the group calendar; dedupe against existing entries.
-- **Contacts** — private store, coordinators-only. Small enough for a simple hosted table; must not be readable by members.
+- **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md`.
 - **Discord** — bot in the coordinators server; task queue with status; approval callbacks for anything that emails or spends.
 - **Recent activity** — an append-only log of coordinator actions, shown newest-first with relative day labels (`Today`, `Mon`, `Jul 24`).
 

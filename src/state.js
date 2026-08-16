@@ -7,6 +7,12 @@ export const state = {
   name: "",
   source: "At an event",
   batch: "",
+  // Contact form (Flow 4)
+  cName: "",
+  cEmail: "",
+  cPhone: "",
+  cNotes: "",
+  cTag: "🏛️ Venue",
   tpl: "reminder", // reminder | announce | recap
 };
 
@@ -25,4 +31,13 @@ export function resetAdd() {
 // template copy and so drops any edited draft.
 export function resetBroadcast() {
   state.tpl = "reminder";
+}
+
+// Entering the contact screen resets all contact fields but NOT the
+// selected tag (spec "Field clearing").
+export function resetContact() {
+  state.cName = "";
+  state.cEmail = "";
+  state.cPhone = "";
+  state.cNotes = "";
 }

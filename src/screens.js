@@ -1,11 +1,12 @@
 // Screen renders: Home (spec §1), Add to mailing list (§2), Message the list
-// (§4), Done (§8), plus stubs for screens not wired up yet.
+// (§4), Save a contact (§6), Done (§8), plus stubs for screens not wired up.
 
 import { h, header, sectionLabel, cta, agentRow, chipRow } from "./ui.js";
-import { state, resetAdd, resetBroadcast } from "./state.js";
+import { state, resetAdd, resetBroadcast, resetContact } from "./state.js";
 import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
 import { enqueue, forward } from "./queue.js";
 import { LIST_MAIL, handOffBroadcast } from "./backend.js";
+import { saveContact, listContacts, rowOf } from "./contacts.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
 
@@ -31,6 +32,7 @@ function shell(kicker, title, cancel, ...body) {
 export function render(screen, opts) {
   if (screen === "add") resetAdd(); // spec "Field clearing"
   if (screen === "broadcast") resetBroadcast(); // state table: tpl → reminder
+  if (screen === "contact") resetContact();
   const build = SCREENS[screen] ?? SCREENS.home;
   document.getElementById("app").replaceChildren(build(opts));
 }
@@ -441,24 +443,165 @@ function broadcastScreen() {
   );
 }
 
+/* ---------------------------- 6. Save a contact ---------------------------- */
+
+const CTAGS = ["🏛️ Venue", "💰 Sponsor", "🎁 Vendor", "🙋 Volunteer"];
+
+function submitContact() {
+  const name = state.cName.trim();
+  if (!name) return;
+  saveContact({
+    name,
+    email: state.cEmail.trim(),
+    phone: state.cPhone.trim(),
+    notes: state.cNotes.trim(),
+    tag: state.cTag,
+  });
+  go("done", { done: { kind: "contact", who: name } });
+}
+
+function savedCard() {
+  const rows = listContacts();
+  if (!rows.length) {
+    return h(
+      "div",
+      { class: "card" },
+      h("div", { class: "empty" }, "Nothing yet — contacts you save show up here."),
+    );
+  }
+  return h(
+    "div",
+    { class: "card rows-card" },
+    rows.map((c) => {
+      const r = rowOf(c);
+      return h(
+        "div",
+        { class: "contact-row" },
+        h("div", { class: "contact-row-emoji" }, r.icon),
+        h(
+          "div",
+          { class: "contact-row-text" },
+          h("div", { class: "contact-name" }, r.name),
+          r.note ? h("div", { class: "contact-note" }, r.note) : null,
+        ),
+      );
+    }),
+  );
+}
+
+function contactScreen() {
+  const submit = cta(
+    () => (state.cName.trim() ? "Save contact 📇" : "Add a name first"),
+    () => state.cName.trim().length > 0,
+    submitContact,
+  );
+  return shell(
+    "Private · coordinators only",
+    "Save a contact",
+    true,
+    h(
+      "div",
+      { class: "privacy-banner" },
+      h("div", { class: "privacy-banner-emoji" }, "🔒"),
+      h(
+        "div",
+        { class: "privacy-banner-body" },
+        "Private to coordinators. Nothing here touches the mailing list or gets emailed.",
+      ),
+    ),
+    h(
+      "div",
+      { class: "card field-card" },
+      fieldGroup(
+        "Name",
+        h("input", {
+          class: "input",
+          autocomplete: "off",
+          placeholder: "Dana Whitfield",
+          value: state.cName,
+          oninput: (e) => {
+            state.cName = e.target.value;
+            submit.update();
+          },
+        }),
+      ),
+      fieldGroup(
+        "Email",
+        h("input", {
+          class: "input input-mono",
+          inputmode: "email",
+          autocomplete: "off",
+          placeholder: "events@cambridgelibrary.org",
+          value: state.cEmail,
+          oninput: (e) => {
+            state.cEmail = e.target.value;
+          },
+        }),
+      ),
+      fieldGroup(
+        "Phone or handle",
+        h("input", {
+          class: "input",
+          autocomplete: "off",
+          placeholder: "617-555-0148 · @dana on Discord",
+          value: state.cPhone,
+          oninput: (e) => {
+            state.cPhone = e.target.value;
+          },
+        }),
+        { optional: true },
+      ),
+      fieldGroup(
+        "Who is this?",
+        chipRow(CTAGS, (o) => o === state.cTag, (o) => {
+          state.cTag = o;
+        }),
+        { chips: true },
+      ),
+      fieldGroup(
+        "Notes 📝",
+        h("textarea", {
+          class: "input notes-area",
+          placeholder: "Books the lecture hall. Needs 3 weeks notice, no food past 8pm.",
+          value: state.cNotes,
+          oninput: (e) => {
+            state.cNotes = e.target.value;
+          },
+        }),
+      ),
+    ),
+    submit.btn,
+    agentRow("Have the agent email them about hosting a night in September", () =>
+      go("agent", {
+        task: `Email ${state.cName.trim() || "this contact"} about hosting a night in September.`,
+      }),
+    ),
+    sectionLabel("Saved contacts"),
+    savedCard(),
+  );
+}
+
 /* --------------------------- 8. Done (shared) --------------------------- */
 
-function doneScreen(opts) {
-  const done = opts?.done ?? { kind: "one", who: "They" };
+const DONE_COPY = {
+  one: (d) => ["Invite sent", `${d.who} will get your message with the join link.`],
+  batch: (d) => [
+    `Invited ${d.n} people`,
+    "Your message with the join link is on the way. Anyone already on the list was skipped.",
+  ],
+  contact: (d) => ["Contact saved 📇", `${d.who} is in the coordinator address book. No emails sent.`],
   // Message copy follows the ADR 0002 honesty pattern: the app hands the
   // composed mail to the coordinator's mail app, so the body says where the
   // message is rather than claiming a delivery the app can't see.
-  const COPY = {
-    batch: [
-      `Invited ${done.n} people`,
-      "Your message with the join link is on the way. Anyone already on the list was skipped.",
-    ],
-    message: [
-      "Message sent",
-      `Your mail app has the message — send it there to reach ${done.reach}. It'll also show up in the group archive.`,
-    ],
-  };
-  const [title, body] = COPY[done.kind] ?? ["Invite sent", `${done.who} will get your message with the join link.`];
+  message: (d) => [
+    "Message sent",
+    `Your mail app has the message — send it there to reach ${d.reach}. It'll also show up in the group archive.`,
+  ],
+};
+
+function doneScreen(opts) {
+  const done = opts?.done ?? { kind: "one", who: "They" };
+  const [title, body] = (DONE_COPY[done.kind] ?? DONE_COPY.one)(done);
   return shell(
     null,
     "Done",
@@ -476,7 +619,7 @@ function doneScreen(opts) {
       h(
         "div",
         { class: "done-actions" },
-        // One pop returns to the add entry; entering add clears the fields
+        // One pop returns to the task screen; entering it clears the fields
         // (spec "Field clearing"), so this reads as a fresh form.
         h("button", { class: "cta", type: "button", onclick: back }, "Add another"),
         h("button", { class: "btn-secondary", type: "button", onclick: homeFromDone }, "Back to home"),
@@ -520,7 +663,6 @@ function agentScreen(opts) {
 
 const FUTURE_FLOWS = {
   luma: ["Community calendar", "Add Luma event"],
-  contact: ["Private · coordinators only", "Save a contact"],
 };
 
 function futureScreen(key) {
@@ -536,7 +678,7 @@ function futureScreen(key) {
       h(
         "p",
         { class: "card-body" },
-        "This flow is follow-up work — this build ships Flow 1, the mailing-list add.",
+        "This flow is follow-up work — shipped so far: the mailing-list add, message-the-list, and the contact book.",
       ),
     ),
   );
@@ -549,5 +691,5 @@ const SCREENS = {
   done: doneScreen,
   agent: agentScreen,
   luma: () => futureScreen("luma"),
-  contact: () => futureScreen("contact"),
+  contact: contactScreen,
 };
