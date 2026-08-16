@@ -25,15 +25,23 @@ head. There is no live member count (consumer Groups have no API): the empty
 local roster stub drives the broadcast CTA/kicker once CSV roster sync lands.
 Flow 4 (save a contact) keeps a local-only contact book in `src/contacts.js`
 (same localStorage approach as the queue; nothing leaves the device — see
-`docs/adr/0003-device-local-contact-book.md`). The luma/agent flows render as
-stubs; the batch dupe check uses the same empty roster stub. Screen 3 (scan)
-is deliberately unbuilt — it hangs on README open question 1.
+`docs/adr/0003-device-local-contact-book.md`). Flow 3 (add a community Luma
+event) is the credential-free design: read-only GETs of public lu.ma pages
+for preview + best-effort dedupe (`src/luma.js` pure parsers,
+`tauri-plugin-http` scoped to luma.com/lu.ma), and the add itself is a
+handoff into Luma's own Add Event panel — the app never writes anywhere;
+`handOffLuma()` in `src/backend.js` is the swap point, and the group
+calendar's slug is the `GROUP_CALENDAR` constant there (see
+`docs/adr/0004-credential-free-luma-handoff.md`). The agent flow renders as
+a stub; the batch dupe check uses the same empty roster stub. Screen 3
+(scan) is deliberately unbuilt — it hangs on README open question 1.
 
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
-- Frontend tests: `npm test` (node:test; covers the pure validation/parse and
-  the join-link + broadcast compose logic — no browser needed).
+- Frontend tests: `npm test` (node:test; covers the pure validation/parse,
+  the join-link + broadcast compose logic, and the Luma extraction/dedupe
+  chain against fabricated fixtures — no browser needed).
 - Emulator: AVDs `fm-contacts` and `skydash-smoke` (`emulator -list-avds`).
   Several agents may verify concurrently — boot your own instance on a free
   port (`emulator -avd <name> -port <unique> -no-window -no-audio
@@ -41,7 +49,10 @@ is deliberately unbuilt — it hangs on README open question 1.
   `adb -s emulator-<port>`.
 - Rust, host check: desktop `cargo check` does NOT pass on this machine — the
   Linux desktop stack (libdbus, webkit2gtk-4.1, gtk3) is not installed. Use
-  `cargo check --target aarch64-linux-android` in `src-tauri/` instead.
+  `cargo check --target aarch64-linux-android` in `src-tauri/` instead, with
+  the NDK toolchain on PATH (`export PATH=/home/griswald/Android/Sdk/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH`)
+  — `ring` (via tauri-plugin-http → reqwest) needs its C compiler; `tauri
+  android build` sets this up itself.
 - APK: `ANDROID_HOME=/home/griswald/Android/Sdk NDK_HOME=/home/griswald/Android/Sdk/ndk/27.2.12479018 npx tauri android build --apk`.
   The system `java` is a JRE (no `javac`), so Gradle fails with
   "does not provide the required capabilities: [JAVA_COMPILER]" unless

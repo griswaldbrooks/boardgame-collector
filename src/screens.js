@@ -1,11 +1,19 @@
 // Screen renders: Home (spec §1), Add to mailing list (§2), Message the list
-// (§4), Save a contact (§6), Done (§8), plus stubs for screens not wired up.
+// (§4), Add a community Luma event (§5), Save a contact (§6), Done (§8),
+// plus the agent screen stub (Discord agent not connected yet).
 
 import { h, header, sectionLabel, cta, agentRow, chipRow } from "./ui.js";
-import { state, resetAdd, resetBroadcast, resetContact } from "./state.js";
+import { state, resetAdd, resetBroadcast, resetContact, resetLuma } from "./state.js";
 import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
 import { enqueue, forward } from "./queue.js";
-import { LIST_MAIL, handOffBroadcast } from "./backend.js";
+import {
+  LIST_MAIL,
+  handOffBroadcast,
+  fetchEventPreview,
+  fetchCalendarEvents,
+  handOffLuma,
+} from "./backend.js";
+import { normalizeLumaUrl, formatWhen, findDuplicate } from "./luma.js";
 import { saveContact, listContacts, rowOf } from "./contacts.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
@@ -18,6 +26,7 @@ const HANDOFF_TASK = {
   add: "Add everyone who reacted 🎲 to the last #announcements post to the mailing list.",
   batch: "Take the emails I pasted, drop anyone already on the list, and invite the rest.",
   message: "Finish this reminder draft and send it to the list Monday at 9am.",
+  luma: "Watch Luma for Boston tabletop events this week and add anything relevant to our calendar.",
 };
 
 function shell(kicker, title, cancel, ...body) {
@@ -33,6 +42,7 @@ export function render(screen, opts) {
   if (screen === "add") resetAdd(); // spec "Field clearing"
   if (screen === "broadcast") resetBroadcast(); // state table: tpl → reminder
   if (screen === "contact") resetContact();
+  if (screen === "luma") resetLuma();
   const build = SCREENS[screen] ?? SCREENS.home;
   document.getElementById("app").replaceChildren(build(opts));
 }
@@ -443,6 +453,210 @@ function broadcastScreen() {
   );
 }
 
+/* ---------------------- 5. Add a community Luma event ---------------------- */
+// Credential-free v1 (docs/adr/0004-credential-free-luma-handoff.md):
+// read-only GETs of public pages for preview + best-effort dedupe; the add
+// itself is a handoff into Luma's own Add Event panel — the app never writes.
+
+// Every field degrades on its own, so an event page can arrive without a
+// usable name — one fallback for every place the title reaches the screen,
+// the activity log, or the Done copy.
+const lumaTitle = (p) => p?.title || "The event";
+
+const LUMA_ERROR = {
+  offline: "You're offline — pulling a preview needs a connection.",
+  // A calendar or user page reads fine and even serves an og:title, so say
+  // what's actually wrong instead of blaming the connection.
+  notEvent: "That link isn't a Luma event page — paste an event link.",
+  generic: "Couldn't pull a preview — check the link. Private events can't be added to a community calendar.",
+};
+
+function lumaPreviewCard(p) {
+  const meta = [formatWhen(p.startAt, p.timezone), p.venue].filter(Boolean).join(" · ");
+  return h(
+    "div",
+    { class: "card" },
+    sectionLabel("Pulled from Luma"),
+    h("div", { class: "luma-title" }, lumaTitle(p)),
+    meta ? h("div", { class: "luma-meta" }, meta) : null,
+    p.tags.length
+      ? h(
+          "div",
+          { class: "luma-tags" },
+          p.tags.map((t, i) =>
+            h("span", { class: i === 0 ? "tag-pill tag-pill-accent" : "tag-pill" }, t),
+          ),
+        )
+      : null,
+  );
+}
+
+function lumaScreen() {
+  let seq = 0; // stale-fetch guard: the last scheduleCheck wins
+  let timer = null;
+  let phase = "idle"; // idle | loading | error | ready
+  let dedupe = "idle"; // idle | checking | miss | hit | unreadable
+  let errorKind = null; // offline | notEvent | generic
+  let preview = null;
+  let fetched = null; // { url, preview, dedupe } — one-URL cache, no refetch
+
+  const dyn = h("div", { class: "stack" });
+  const notice = h("div", { class: "confirm-notice" });
+
+  const submit = cta(
+    () => {
+      if (phase === "loading") return "Pulling preview…";
+      if (phase === "error") return "No preview to add";
+      if (phase === "ready") {
+        if (dedupe === "hit") return "Already on our calendar";
+        return "Add to our calendar";
+      }
+      return "Paste a Luma link";
+    },
+    () => phase === "ready" && (dedupe === "miss" || dedupe === "unreadable"),
+    submitLuma,
+  );
+
+  function repaint() {
+    const kids = [];
+    if (phase === "loading") {
+      kids.push(h("div", { class: "card luma-note" }, h("span", { class: "spinner" }), "Pulling preview…"));
+    } else if (phase === "error") {
+      kids.push(
+        h(
+          "div",
+          { class: "card luma-note luma-error" },
+          LUMA_ERROR[errorKind] ?? LUMA_ERROR.generic,
+        ),
+      );
+    } else if (phase === "ready" && preview) {
+      kids.push(lumaPreviewCard(preview));
+      if (dedupe === "hit") {
+        kids.push(
+          h(
+            "div",
+            { class: "luma-already" },
+            h("div", { class: "luma-already-badge" }, "✓"),
+            h(
+              "div",
+              { class: "luma-already-copy" },
+              h("div", { class: "luma-already-title" }, "Already on our calendar"),
+              h("div", { class: "luma-already-sub" }, `${lumaTitle(preview)} is listed with the upcoming events.`),
+            ),
+          ),
+        );
+      } else if (dedupe === "unreadable") {
+        kids.push(
+          h("div", { class: "luma-check-note" }, "Couldn't check our calendar — you can still add it there."),
+        );
+      }
+    }
+    dyn.replaceChildren(...kids);
+    submit.update();
+  }
+
+  async function run(url) {
+    const my = seq;
+    dedupe = "checking";
+    repaint();
+    const [pRes, cRes] = await Promise.allSettled([fetchEventPreview(url), fetchCalendarEvents()]);
+    if (my !== seq) return; // a newer input superseded this fetch
+    if (pRes.status === "rejected" || !pRes.value.isEvent) {
+      // network failure, or a readable page that simply isn't an event
+      errorKind =
+        pRes.status === "rejected" ? (navigator.onLine ? "generic" : "offline") : "notEvent";
+      phase = "error";
+      repaint();
+      return;
+    }
+    preview = pRes.value;
+    if (!preview.url) preview.url = url;
+    if (cRes.status === "fulfilled") {
+      dedupe = findDuplicate(preview, cRes.value) ? "hit" : "miss";
+    } else {
+      dedupe = "unreadable"; // best-effort: say so and never block the add
+    }
+    phase = "ready";
+    fetched = { url, preview, dedupe };
+    repaint();
+  }
+
+  function scheduleCheck() {
+    seq++;
+    clearTimeout(timer);
+    errorKind = null;
+    notice.textContent = "";
+    const url = normalizeLumaUrl(state.luma);
+    if (!url) {
+      phase = "idle";
+      preview = null;
+      dedupe = "idle";
+      repaint();
+      return;
+    }
+    if (fetched?.url === url) {
+      // Same link as before (edit-and-retype): reuse the settled result.
+      preview = fetched.preview;
+      dedupe = fetched.dedupe;
+      phase = "ready";
+      repaint();
+      return;
+    }
+    phase = "loading";
+    preview = null;
+    dedupe = "idle";
+    repaint();
+    timer = setTimeout(() => run(url), 500); // one fetch per pasted link
+  }
+
+  async function submitLuma() {
+    if (!preview) return;
+    submit.btn.disabled = true;
+    submit.btn.textContent = "Opening Luma…";
+    try {
+      await handOffLuma(preview);
+    } catch (err) {
+      console.warn(`[luma] handoff failed: ${err?.message ?? err}`);
+      notice.textContent = "Couldn't open Luma. Try again.";
+      submit.update();
+      return;
+    }
+    addActivity(`Added "${lumaTitle(preview)}" to the calendar`);
+    go("done", { done: { kind: "luma", title: lumaTitle(preview) } });
+  }
+
+  return shell(
+    "Community calendar",
+    "Add Luma event",
+    true,
+    h(
+      "div",
+      { class: "card field-card" },
+      fieldGroup(
+        "Luma link",
+        h("input", {
+          class: "input input-mono",
+          autocomplete: "off",
+          autocapitalize: "off",
+          spellcheck: "false",
+          placeholder: "lu.ma/…",
+          value: state.luma,
+          oninput: (e) => {
+            state.luma = e.target.value;
+            scheduleCheck();
+          },
+        }),
+      ),
+    ),
+    dyn,
+    submit.btn,
+    notice,
+    agentRow("Have the agent watch Luma and add community events all week", () =>
+      go("agent", { task: HANDOFF_TASK.luma }),
+    ),
+  );
+}
+
 /* ---------------------------- 6. Save a contact ---------------------------- */
 
 const CTAGS = ["🏛️ Venue", "💰 Sponsor", "🎁 Vendor", "🙋 Volunteer"];
@@ -597,6 +811,12 @@ const DONE_COPY = {
     "Message sent",
     `Your mail app has the message — send it there to reach ${d.reach}. It'll also show up in the group archive.`,
   ],
+  // The app hands the add to Luma's own UI (ADR 0004), so the copy says
+  // where things stand rather than claiming the calendar already shows it.
+  luma: (d) => [
+    "Finish adding in Luma",
+    `Luma opens at our calendar's add-event panel. Paste the link there — ${d.title} shows on our calendar once it's confirmed.`,
+  ],
 };
 
 function doneScreen(opts) {
@@ -661,35 +881,12 @@ function agentScreen(opts) {
   );
 }
 
-const FUTURE_FLOWS = {
-  luma: ["Community calendar", "Add Luma event"],
-};
-
-function futureScreen(key) {
-  const [kicker, title] = FUTURE_FLOWS[key];
-  return shell(
-    kicker,
-    title,
-    true,
-    h(
-      "div",
-      { class: "card" },
-      h("div", { class: "card-title" }, "Not wired up yet"),
-      h(
-        "p",
-        { class: "card-body" },
-        "This flow is follow-up work — shipped so far: the mailing-list add, message-the-list, and the contact book.",
-      ),
-    ),
-  );
-}
-
 const SCREENS = {
   home: homeScreen,
   add: addScreen,
   broadcast: broadcastScreen,
   done: doneScreen,
   agent: agentScreen,
-  luma: () => futureScreen("luma"),
+  luma: lumaScreen,
   contact: contactScreen,
 };

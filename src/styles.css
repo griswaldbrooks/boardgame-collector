@@ -42,6 +42,9 @@
   /* warm notice */
   --warm-bg: #fffdf9;
   --warm-border: #efe7da;
+  /* luma preview meta line + neutral tag pill (spec §5) */
+  --text-meta: #555555;
+  --pill-neutral-bg: #f2efe9;
   --sans: "IBM Plex Sans", system-ui, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace;
 }
@@ -822,4 +825,120 @@ textarea.input {
 .confirm-notice {
   font-size: 12.5px;
   color: var(--mail-text);
+}
+
+/* ------------------------ Add a community Luma event ------------------------ */
+
+.luma-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.25;
+}
+
+.luma-meta {
+  font-size: 13.5px;
+  color: var(--text-meta);
+}
+
+.luma-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.tag-pill {
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 999px;
+  padding: 4px 10px;
+  color: var(--text-secondary);
+  background: var(--pill-neutral-bg);
+  border: 1px solid var(--border);
+}
+
+.tag-pill-accent {
+  color: #5b3ba8;
+  background: var(--calendar-bg);
+  border-color: var(--calendar-border);
+}
+
+/* Loading / error status card under the link input */
+.luma-note {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  color: var(--text-tertiary);
+}
+
+.luma-error {
+  color: var(--mail-text);
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  border-top-color: var(--text-secondary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Dedupe hit — success tone, same accent family as the Done badge */
+.luma-already {
+  background: var(--mail-bg);
+  border: 1px solid var(--mail-border);
+  border-radius: 14px;
+  padding: 13px 15px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.luma-already-badge {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 1px solid var(--mail-border);
+  color: var(--mail-text);
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.luma-already-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.luma-already-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--mail-text);
+}
+
+.luma-already-sub {
+  font-size: 12.5px;
+  color: var(--mail-text);
+  line-height: 1.45;
+}
+
+/* Best-effort dedupe could not read the calendar — say so, never block */
+.luma-check-note {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  padding: 0 4px;
 }
