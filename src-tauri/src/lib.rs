@@ -5,6 +5,11 @@ pub fn run() {
         // coordinator's own mail app sends; the WebView cannot load them
         // (ERR_UNKNOWN_URL_SCHEME). See docs/adr/0002.
         .plugin(tauri_plugin_opener::init())
+        // Read-only GETs of public lu.ma pages for the Luma preview + dedupe
+        // (capability-scoped to luma.com/lu.ma; the app never writes anywhere
+        // — the only write path is the coordinator in Luma's own UI after the
+        // handoff). See docs/adr/0004.
+        .plugin(tauri_plugin_http::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

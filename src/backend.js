@@ -1,10 +1,12 @@
-// The ONE swap point between the app and the add-member mechanism.
+// The swap points between the app and the outside world. The app never
+// performs the privileged act itself — it composes, a human's own apps
+// execute (ADR 0002 join link, ADR 0002 broadcast mailto, ADR 0004 Luma).
 //
-// v1 (docs/adr/0002-self-serve-join-link.md): consumer googlegroups.com
+// v1 add (docs/adr/0002-self-serve-join-link.md): consumer googlegroups.com
 // groups have no membership API, so the app composes a message with the
 // join link and hands it to the coordinator's own apps — the device share
-// sheet for a single add, one BCC'd email for a batch. The app never sends
-// anything itself: composing works offline and needs no network here.
+// sheet for a single add, one BCC'd email for a batch. Composing works
+// offline and needs no network here.
 
 export const JOIN_LINK = "https://groups.google.com/g/bgn-wg/about";
 export const JOIN_MAIL = "bgn-wg+subscribe@googlegroups.com";
@@ -38,9 +40,95 @@ export function broadcastMailtoUri(subject, body) {
   return `mailto:${LIST_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
-// The opener JS API is only IPC wrappers; importing it statically is safe
-// outside Tauri (it is never called there).
+/* ------------------------- Flow 3: community Luma events -------------------------
+ * Credential-free v1 (docs/adr/0004-credential-free-luma-handoff.md): the app
+ * reads public lu.ma pages and hands the actual add to Luma's own UI. All
+ * network here is read-only GETs; the ONLY write path is the coordinator
+ * acting in Luma after handOffLuma() opens it. Luma Plus / API keys were
+ * declined — nothing in this file may grow a credential. */
+
+// The group's community calendar (captain-confirmed: a Luma calendar,
+// admined by the captain's account; identified 2026-08-16 by resolving the
+// calendar id to its public slug). The public page feeds the dedupe read;
+// the manage page is the handoff deep-link target.
+export const GROUP_CALENDAR = {
+  name: "Board Game Night WG",
+  slug: "boardgamenightwg",
+  id: "cal-v6H3Jm84BrwuOYb",
+};
+
+export function calendarUrl() {
+  return GROUP_CALENDAR.slug ? `https://luma.com/${GROUP_CALENDAR.slug}` : null;
+}
+
+// The admin "Add Existing Luma Event" panel the group's documented flow uses;
+// the coordinator is signed in there, so the handoff lands two taps from done.
+export function calendarManageUrl() {
+  return GROUP_CALENDAR.id ? `https://luma.com/calendar/manage/${GROUP_CALENDAR.id}` : calendarUrl();
+}
+
+// A browser fetch of luma.com dies on CORS (no Access-Control-Allow-Origin),
+// so inside Tauri the request goes through the Rust-side http plugin
+// (capability-scoped to luma.com / lu.ma). Bare browser dev falls back to
+// window.fetch and sees the error state instead — same as airplane mode.
+const FETCH_TIMEOUT_MS = 10_000;
+export async function fetchLumaPage(url) {
+  const f = window.__TAURI_INTERNALS__ ? tauriFetch : globalThis.fetch;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
+  try {
+    // Race guards the case where the fetch impl ignores the abort signal.
+    const res = await Promise.race([
+      f(url, { redirect: "follow", signal: ctrl.signal, headers: { accept: "text/html" } }),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), FETCH_TIMEOUT_MS + 500)),
+    ]);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+import { parseEventPage, parseCalendarEvents } from "./luma.js";
+
+// Preview of a pasted event link: one GET of the public page, parsed with
+// graceful per-field degradation (docs/adr/0004). Throws on network/HTTP
+// failure — the screen renders its offline/error state.
+export async function fetchEventPreview(url) {
+  return parseEventPage(await fetchLumaPage(url));
+}
+
+// Upcoming events embedded in the group calendar's public page — the
+// best-effort dedupe read. Throws when the calendar is unconfigured or the
+// page can't be read; the screen then says so and never blocks the add.
+export async function fetchCalendarEvents() {
+  const url = calendarUrl();
+  if (!url) throw new Error("group calendar not configured");
+  return parseCalendarEvents(await fetchLumaPage(url));
+}
+
+// Hand the confirmed event to Luma's own Add Event panel: the event URL goes
+// to the clipboard (Luma's panel takes a pasted link), then the group's
+// calendar page opens in the coordinator's browser, where they are already
+// signed in and are an admin. This is THE swap point for the add mechanism —
+// a funded Luma Plus upgrade replaces this function with
+// POST /v1/calendars/events/add without touching the screen.
+export async function handOffLuma(preview) {
+  const target = calendarManageUrl();
+  if (!target) throw new Error("group calendar not configured");
+  try {
+    await navigator.clipboard.writeText(preview.url);
+  } catch (err) {
+    // Not fatal: the coordinator can still type the link into Luma's panel.
+    console.warn(`[luma] clipboard copy failed: ${err?.message ?? err}`);
+  }
+  await openExternal(target);
+}
+
+// The opener/http JS APIs are only IPC wrappers; importing them statically
+// is safe outside Tauri (they are never called there).
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 
 // OS-level handoff (ACTION_VIEW on Android via tauri-plugin-opener). A bare
 // location.href can't carry a mailto: through the WebView — it dies with

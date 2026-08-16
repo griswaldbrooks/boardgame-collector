@@ -7,6 +7,7 @@ export const state = {
   name: "",
   source: "At an event",
   batch: "",
+  luma: "", // pasted Luma event link
   // Contact form (Flow 4)
   cName: "",
   cEmail: "",
@@ -31,6 +32,11 @@ export function resetAdd() {
 // template copy and so drops any edited draft.
 export function resetBroadcast() {
   state.tpl = "reminder";
+}
+
+// Entering the luma screen clears the pasted URL (spec "Field clearing").
+export function resetLuma() {
+  state.luma = "";
 }
 
 // Entering the contact screen resets all contact fields but NOT the

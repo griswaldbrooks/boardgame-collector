@@ -7,6 +7,20 @@
   ],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        {
+          "url": "https://luma.com/**"
+        },
+        {
+          "url": "https://www.luma.com/**"
+        },
+        {
+          "url": "https://lu.ma/**"
+        }
+      ]
+    }
   ]
 }
