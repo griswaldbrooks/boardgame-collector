@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isValidEmail, parseBatch } from "../src/parse.js";
-import { JOIN_LINK, composeMessage, singleMailtoUri, batchMailtoUri } from "../src/backend.js";
+import { isValidEmail, parseBatch, splitDraft } from "../src/parse.js";
+import {
+  JOIN_LINK,
+  LIST_MAIL,
+  composeMessage,
+  singleMailtoUri,
+  batchMailtoUri,
+  broadcastMailtoUri,
+} from "../src/backend.js";
 
 test("single-email regex gates the CTA per spec", () => {
   assert.equal(isValidEmail(""), false);
@@ -55,4 +62,23 @@ test("batch mailto puts every pasted address in BCC", () => {
   assert.ok(uri.startsWith("mailto:?bcc="));
   assert.ok(uri.includes("a%40example.com,b%40example.com"));
   assert.ok(uri.includes(encodeURIComponent(JOIN_LINK)));
+});
+
+test("splitDraft pulls the Subject line off an edited preview", () => {
+  assert.deepEqual(splitDraft("Subject: Wednesday at the Cambridge Library\n\nHi all — body."), {
+    subject: "Wednesday at the Cambridge Library",
+    body: "Hi all — body.",
+  });
+  // Blank lines between subject and body don't leak into the body.
+  assert.deepEqual(splitDraft("Subject: S\n\n\nB"), { subject: "S", body: "B" });
+  // Edited past the template shape: no subject line means empty subject.
+  assert.deepEqual(splitDraft("Just a body now"), { subject: "", body: "Just a body now" });
+  assert.deepEqual(splitDraft(""), { subject: "", body: "" });
+});
+
+test("broadcast mailto is addressed to the group with the edited content", () => {
+  const uri = broadcastMailtoUri("Last night was a good one", "Thanks to the 38 of you.");
+  assert.ok(uri.startsWith(`mailto:${LIST_MAIL}?`));
+  assert.ok(uri.includes(`subject=${encodeURIComponent("Last night was a good one")}`));
+  assert.ok(uri.includes(`body=${encodeURIComponent("Thanks to the 38 of you.")}`));
 });
