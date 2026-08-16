@@ -130,6 +130,11 @@ button {
   gap: 14px;
 }
 
+/* Content children keep their natural height; tall screens scroll instead. */
+.content > * {
+  flex-shrink: 0;
+}
+
 /* Shared: Section label */
 .section-label {
   font-family: var(--mono);
