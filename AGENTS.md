@@ -8,11 +8,23 @@ This file is the project's committed home for project-intrinsic agent knowledge:
 
 Tauri 2 Android WebView shell (not a PWA — see `docs/adr/0001-tauri-2-not-pwa.md`),
 following the skydash-app pattern but with the frontend bundled (`frontendDist`).
-The design spec lives in `README.md` (handoff spec); flows are follow-up work.
+The design spec lives in `README.md` (handoff spec).
+
+Flow 1 (Home → Add to mailing list → Done) is implemented in framework-free ES
+modules under `src/`. The v1 add mechanism is the self-serve join link: the app
+composes the join-link message and hands it to the coordinator's own apps
+(share sheet / BCC mailto); it never sends anything itself — see
+`docs/adr/0002-self-serve-join-link.md`. The single swap point for a future
+mechanism is `handOff()` in `src/backend.js`, fed by the store-and-forward
+queue in `src/queue.js`. The other flows (message/luma/contact/agent) render
+as stubs; the batch dupe check uses an empty local roster stub. Screen 3
+(scan) is deliberately unbuilt — it hangs on README open question 1.
 
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
+- Frontend tests: `npm test` (node:test; covers the pure validation/parse and
+  join-link compose logic — no browser needed).
 - Rust, host check: desktop `cargo check` does NOT pass on this machine — the
   Linux desktop stack (libdbus, webkit2gtk-4.1, gtk3) is not installed. Use
   `cargo check --target aarch64-linux-android` in `src-tauri/` instead.
