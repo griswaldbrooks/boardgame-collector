@@ -28,6 +28,10 @@
   --calendar-border: #dccff0;
   --contact-bg: #e3f4ea;
   --contact-border: #bfe3ce;
+  --contact-text: #4c6155;
+  /* privacy banner (lighter greens than the contacts accent, per spec §6) */
+  --privacy-bg: #f4faf6;
+  --privacy-border: #dceee4;
   --agent-bg: #f3f4fd;
   --agent-border: #dddff6;
   --agent-title: #2e3168;
@@ -641,6 +645,77 @@ textarea.input {
   gap: 10px;
   width: 100%;
   padding-top: 6px;
+}
+
+/* --------------------------- Save a contact --------------------------- */
+
+.privacy-banner {
+  background: var(--privacy-bg);
+  border: 1px solid var(--privacy-border);
+  border-radius: 14px;
+  padding: 13px 15px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.privacy-banner-emoji {
+  font-size: 15px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.privacy-banner-body {
+  font-size: 12.5px;
+  color: var(--contact-text);
+  line-height: 1.45;
+}
+
+.input-mono {
+  font-family: var(--mono);
+}
+
+.notes-area {
+  font-size: 15px;
+  min-height: 110px;
+}
+
+/* Saved contacts list */
+.contact-row {
+  padding: 13px 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.contact-row + .contact-row {
+  border-top: 1px solid var(--divider);
+}
+
+.contact-row-emoji {
+  font-size: 17px;
+  line-height: 1.2;
+  flex-shrink: 0;
+}
+
+.contact-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.contact-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.contact-note {
+  font-size: 12.5px;
+  color: var(--text-tertiary);
+  line-height: 1.4;
 }
 
 /* --------------------------- Agent stub --------------------------- */

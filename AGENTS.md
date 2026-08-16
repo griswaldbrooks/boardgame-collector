@@ -10,21 +10,24 @@ Tauri 2 Android WebView shell (not a PWA — see `docs/adr/0001-tauri-2-not-pwa.
 following the skydash-app pattern but with the frontend bundled (`frontendDist`).
 The design spec lives in `README.md` (handoff spec).
 
-Flow 1 (Home → Add to mailing list → Done) and Flow 2 (Message the list) are
-implemented in framework-free ES modules under `src/`. The v1 add mechanism is
-the self-serve join link: the app composes the join-link message and hands it
-to the coordinator's own apps (share sheet / BCC mailto); it never sends
-anything itself — see `docs/adr/0002-self-serve-join-link.md`. The single swap
-point for a future mechanism is `handOff()` in `src/backend.js`, fed by the
-store-and-forward queue in `src/queue.js`. Flow 2's broadcast follows the same
-pattern: a confirmed mailto to the group's own address (`handOffBroadcast()`
-in `src/backend.js`), deliberately NOT queued — the on-screen confirm step is
-the retry, and a parked broadcast must not block join-link handoffs at the
-queue head. There is no live member count (consumer Groups have no API): the
-empty local roster stub drives the broadcast CTA/kicker once CSV roster sync
-lands. The remaining flows (luma/contact/agent) render as stubs; the batch
-dupe check uses the same empty roster stub. Screen 3 (scan) is deliberately
-unbuilt — it hangs on README open question 1.
+Flow 1 (Home → Add to mailing list → Done), Flow 2 (Message the list), and
+Flow 4 (Save a contact) are implemented in framework-free ES modules under
+`src/`. The v1 add mechanism is the self-serve join link: the app composes the
+join-link message and hands it to the coordinator's own apps (share sheet /
+BCC mailto); it never sends anything itself — see
+`docs/adr/0002-self-serve-join-link.md`. The single swap point for a future
+mechanism is `handOff()` in `src/backend.js`, fed by the store-and-forward
+queue in `src/queue.js`. Flow 2's broadcast follows the same pattern: a
+confirmed mailto to the group's own address (`handOffBroadcast()` in
+`src/backend.js`), deliberately NOT queued — the on-screen confirm step is the
+retry, and a parked broadcast must not block join-link handoffs at the queue
+head. There is no live member count (consumer Groups have no API): the empty
+local roster stub drives the broadcast CTA/kicker once CSV roster sync lands.
+Flow 4 (save a contact) keeps a local-only contact book in `src/contacts.js`
+(same localStorage approach as the queue; nothing leaves the device — hosted
+sharing is README open question 4). The luma/agent flows render as stubs; the
+batch dupe check uses the same empty roster stub. Screen 3 (scan) is
+deliberately unbuilt — it hangs on README open question 1.
 
 ## Build
 
