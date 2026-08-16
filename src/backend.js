@@ -8,6 +8,10 @@
 
 export const JOIN_LINK = "https://groups.google.com/g/bgn-wg/about";
 export const JOIN_MAIL = "bgn-wg+subscribe@googlegroups.com";
+// Mailing a Google Group's own address IS broadcasting to it, so Flow 2's
+// send mechanism is the same self-serve pattern as the add flow (ADR 0002):
+// compose a mailto and let the coordinator's own mail app do the sending.
+export const LIST_MAIL = "bgn-wg@googlegroups.com";
 
 export function composeMessage() {
   return (
@@ -28,6 +32,12 @@ export function batchMailtoUri(emails) {
   return `mailto:?bcc=${emails.map(encodeURIComponent).join(",")}&subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(composeMessage())}`;
 }
 
+// Flow 2 broadcast: the edited preview's subject + body, addressed to the
+// group. Sent by the coordinator's own mail app — the app never sends itself.
+export function broadcastMailtoUri(subject, body) {
+  return `mailto:${LIST_MAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 // The opener JS API is only IPC wrappers; importing it statically is safe
 // outside Tauri (it is never called there).
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -42,6 +52,15 @@ async function openExternal(uri) {
   }
   // Bare browser (desktop dev): plain navigation opens the mail client.
   window.location.href = uri;
+}
+
+// Hand the confirmed broadcast to the coordinator's mail app. Resolves once
+// the OS accepts the handoff; throws when it can't (no mail app), and the
+// caller stays on the confirm step — the draft is untouched, so tapping again
+// retries. No store-and-forward here on purpose: the add queue must not have
+// a broadcast parked at its head blocking join-link handoffs.
+export async function handOffBroadcast({ subject, body }) {
+  await openExternal(broadcastMailtoUri(subject, body));
 }
 
 // Hand one pending intent to the coordinator's apps. Resolves once the OS

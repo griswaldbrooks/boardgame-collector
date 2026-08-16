@@ -1,10 +1,11 @@
-// Screen renders for the Flow 1 build: Home (spec §1), Add to mailing list
-// (§2), Done (§8), plus stubs for screens this build doesn't wire up.
+// Screen renders: Home (spec §1), Add to mailing list (§2), Message the list
+// (§4), Done (§8), plus stubs for screens not wired up yet.
 
 import { h, header, sectionLabel, cta, agentRow, chipRow } from "./ui.js";
-import { state, resetAdd } from "./state.js";
-import { isValidEmail, parseBatch } from "./parse.js";
+import { state, resetAdd, resetBroadcast } from "./state.js";
+import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
 import { enqueue, forward } from "./queue.js";
+import { LIST_MAIL, handOffBroadcast } from "./backend.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
 
@@ -15,6 +16,7 @@ const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 const HANDOFF_TASK = {
   add: "Add everyone who reacted 🎲 to the last #announcements post to the mailing list.",
   batch: "Take the emails I pasted, drop anyone already on the list, and invite the rest.",
+  message: "Finish this reminder draft and send it to the list Monday at 9am.",
 };
 
 function shell(kicker, title, cancel, ...body) {
@@ -28,6 +30,7 @@ function shell(kicker, title, cancel, ...body) {
 
 export function render(screen, opts) {
   if (screen === "add") resetAdd(); // spec "Field clearing"
+  if (screen === "broadcast") resetBroadcast(); // state table: tpl → reminder
   const build = SCREENS[screen] ?? SCREENS.home;
   document.getElementById("app").replaceChildren(build(opts));
 }
@@ -281,17 +284,170 @@ function addScreen() {
   return shell("Mailing list", "Add members", true, h("div", { class: "tabs" }, tabOne, tabBatch), body);
 }
 
+/* --------------------------- 4. Message the list --------------------------- */
+
+const TEMPLATES = [
+  { id: "reminder", title: "Event reminder", desc: "Two days out — time, place, what to bring" },
+  { id: "announce", title: "New event announced", desc: "Date, venue, RSVP link" },
+  { id: "recap", title: "Post-night recap", desc: "Games played, photos, next date" },
+];
+
+// Preview copy per spec §4, swapped with the selection. Editable before
+// sending (spec production note): the preview card IS a textarea styled as
+// the preview text, so editing needs no mode switch.
+const PREVIEWS = {
+  reminder:
+    "Subject: Wednesday at the Cambridge Library\n\nHi all — we're on for Wed Aug 5, 6–9pm, Lecture Hall. 34 RSVPs so far. Bring a game if you've got a favorite.",
+  announce:
+    "Subject: Next board game night — Aug 5\n\nWe've got the Lecture Hall at Cambridge Public Library, 6–9pm. Free, all levels. RSVP so we know how many tables to set.",
+  recap:
+    "Subject: Last night was a good one\n\nThanks to the 38 of you who came out. Heavy Wingspan energy. Photos below — next up Aug 5.",
+};
+
+// There is no live member count: consumer googlegroups.com groups have no
+// membership API (docs/adr/0002-self-serve-join-link.md). The batch dupe
+// check's local roster is the only count available — an empty stub until the
+// CSV roster sync lands (see ROSTER below), so until then the CTA and kicker
+// use count-less copy instead of hardcoding a fake-live number.
+const memberCount = () => ROSTER.length || null;
+
+function broadcastScreen() {
+  const count = memberCount();
+  const reach = count ? `${count} members` : "the list";
+
+  const area = h("textarea", {
+    class: "preview-area",
+    "aria-label": "Preview",
+    value: PREVIEWS[state.tpl],
+    oninput: (e) => {
+      state.draft = e.target.value;
+      grow();
+      submit.update();
+    },
+  });
+  function grow() {
+    area.style.height = "auto";
+    area.style.height = `${area.scrollHeight}px`;
+  }
+
+  const submit = cta(
+    () =>
+      !area.value.trim()
+        ? "Write something first"
+        : count
+          ? `Send to ${count} members`
+          : "Send to the list",
+    () => area.value.trim().length > 0,
+    () => setConfirming(true),
+  );
+
+  // Lightweight confirm before a whole-list send (spec production note).
+  const confirmBlock = h(
+    "div",
+    { class: "stack" },
+    h(
+      "div",
+      { class: "card" },
+      h("div", { class: "card-title" }, "Send this message?"),
+      h(
+        "div",
+        { class: "card-body" },
+        `It opens in your mail app, addressed to ${LIST_MAIL}. Nothing sends until you send it there.`,
+      ),
+      h("div", { class: "confirm-notice" }),
+    ),
+    h(
+      "button",
+      { class: "cta", type: "button", onclick: sendBroadcast },
+      "Open in my mail app",
+    ),
+    h(
+      "button",
+      { class: "btn-secondary", type: "button", onclick: () => setConfirming(false) },
+      "Keep editing",
+    ),
+  );
+
+  async function sendBroadcast() {
+    try {
+      await handOffBroadcast(splitDraft(area.value));
+    } catch (err) {
+      console.warn(`[broadcast] mail handoff failed: ${err?.message ?? err}`);
+      confirmBlock.querySelector(".confirm-notice").textContent =
+        "Couldn't open your mail app. Try again.";
+      return;
+    }
+    addActivity(`Message sent to ${reach}`);
+    go("done", { done: { kind: "message", reach } });
+  }
+
+  // CTA normally; the confirm block replaces it once tapped.
+  const tail = h("div", { class: "stack" }, submit.btn);
+  function setConfirming(on) {
+    tail.replaceChildren(on ? confirmBlock : submit.btn);
+  }
+
+  const tplButtons = TEMPLATES.map((t) =>
+    h(
+      "button",
+      {
+        class: "tpl-card",
+        type: "button",
+        onclick: () => {
+          state.tpl = t.id;
+          state.draft = null; // spec: preview content swaps with selection
+          area.value = PREVIEWS[t.id];
+          grow();
+          refresh();
+        },
+      },
+      h("div", { class: "tpl-title" }, t.title),
+      h("div", { class: "tpl-desc" }, t.desc),
+    ),
+  );
+  function refresh() {
+    tplButtons.forEach((b, i) => b.classList.toggle("tpl-on", TEMPLATES[i].id === state.tpl));
+    submit.update();
+  }
+  refresh();
+
+  return shell(
+    count ? `${count} members` : "Mailing list",
+    "Message the list",
+    true,
+    sectionLabel("Start from"),
+    tplButtons,
+    h(
+      "div",
+      { class: "card preview-card" },
+      h("div", { class: "field-label" }, "Preview"),
+      area,
+    ),
+    tail,
+    agentRow("Have the agent finish this draft and send it Monday 9am", () =>
+      go("agent", { task: HANDOFF_TASK.message }),
+    ),
+  );
+}
+
 /* --------------------------- 8. Done (shared) --------------------------- */
 
 function doneScreen(opts) {
   const done = opts?.done ?? { kind: "one", who: "They" };
-  const [title, body] =
-    done.kind === "batch"
-      ? [
-          `Invited ${done.n} people`,
-          "Your message with the join link is on the way. Anyone already on the list was skipped.",
-        ]
-      : ["Invite sent", `${done.who} will get your message with the join link.`];
+  // Message copy follows the ADR 0002 honesty pattern: the app hands the
+  // composed mail to the coordinator's mail app, so the body says where the
+  // message is rather than claiming a delivery the app can't see.
+  const COPY = {
+    batch: [
+      `Invited ${done.n} people`,
+      "Your message with the join link is on the way. Anyone already on the list was skipped.",
+    ],
+    message: [
+      "Message sent",
+      `Your mail app has the message — send it there to reach ${done.reach}. It'll also show up in the group archive.`,
+    ],
+  };
+  const [title, body] = COPY[done.kind] ?? ["Invite sent", `${done.who} will get your message with the join link.`];
   return shell(
     null,
     "Done",
@@ -352,7 +508,6 @@ function agentScreen(opts) {
 }
 
 const FUTURE_FLOWS = {
-  broadcast: ["412 members", "Message the list"],
   luma: ["Community calendar", "Add Luma event"],
   contact: ["Private · coordinators only", "Save a contact"],
 };
@@ -379,9 +534,9 @@ function futureScreen(key) {
 const SCREENS = {
   home: homeScreen,
   add: addScreen,
+  broadcast: broadcastScreen,
   done: doneScreen,
   agent: agentScreen,
-  broadcast: () => futureScreen("broadcast"),
   luma: () => futureScreen("luma"),
   contact: () => futureScreen("contact"),
 };
