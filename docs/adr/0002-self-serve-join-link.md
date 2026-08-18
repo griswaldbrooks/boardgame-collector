@@ -4,7 +4,12 @@ Date: 2026-08-15
 
 ## Status
 
-Accepted (captain decision, 2026-08-15).
+Accepted (captain decision, 2026-08-15). Superseded-in-part by ADR 0005
+(2026-08-18): the self-serve join link is demoted from the primary add
+mechanism to a secondary fallback, and the queue's store-and-forward
+share-intent handoff is replaced by coordinator-initiated drain in Google
+Groups' own owner UI. The context findings below (no membership API for
+consumer groups) still stand and ADR 0005 builds on them.
 
 ## Context
 

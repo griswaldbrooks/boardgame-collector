@@ -49,11 +49,11 @@ v1's store is device-local only:
 ## Consequences
 
 - `src/contacts.js` is the single swap point: a future hosted mechanism
-  replaces only that module's load/save, the way `handOff()` in
-  `src/backend.js` is the swap point for the mailing-list mechanism
-  (`docs/adr/0002-self-serve-join-link.md`).
+  replaces only that module's load/save, the way the drain block and
+  `MEMBERS_URL` in `src/backend.js` are the swap points for the mailing-list
+  add mechanism (`docs/adr/0005-coordinator-initiated-adds.md`).
 - Saving a contact must never touch the mailing-list queue/roster or any
   mailing-list surface. That separation is what the privacy banner asserts.
-- Contacts need no store-and-forward queue. The add queue exists because a
-  handoff can be cancelled and retried later; nothing about a contact is ever
-  forwarded, so there is nothing to retry.
+- Contacts need no capture queue. The add queue exists because adds are
+  captured at the door and finished later in Google's own UI; a contact is
+  complete the moment it saves, so there is nothing to finish.

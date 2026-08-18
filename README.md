@@ -51,6 +51,7 @@ Per-screen header values:
 |---|---|---|---|
 | Home | `Wednesday crew` | `Home` | — |
 | Add to list | `Mailing list` | `Add members` | `Cancel` |
+| Drain | `Mailing list` | `Finish the adds` | `Cancel` |
 | Scan | `Mailing list` | `Scan sheet` | `Cancel` |
 | Message | `<n> members` when the local roster has a count, else `Mailing list` | `Message the list` | `Cancel` |
 | Luma | `Community calendar` | `Add Luma event` | `Cancel` |
@@ -119,29 +120,31 @@ Row labels (shown to the user, not the pre-fill):
    - Two lines, 14px `#444`: `Wednesday, Aug 5 · 6:00–9:00 pm` / `Cambridge Public Library, Lecture Hall`.
    - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **34** RSVPs · **50** Capacity · **412** On the list.
 
-2. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
+2. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
 
-3. **Section label:** `👇 Do a thing`
+3. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
 
-4. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
+4. **Section label:** `👇 Do a thing`
+
+5. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
 
    | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
    |---|---|---|---|---|
-   | 📬 | `#FFE9D2` / `#FFCFA6` | Add to mailing list | Scan, paste, or type — batches too | `#FFCFA6` / `#FFFDF9` |
+   | 📬 | `#FFE9D2` / `#FFCFA6` | Add to mailing list | Paste or type — batches too | `#FFCFA6` / `#FFFDF9` |
    | 📣 | `#E8EEF9` / `#CFDCF2` | Message the list | Announce or remind, from a template | `#CFDCF2` / `#FCFDFF` |
    | 🗓️ | `#EDE6F7` / `#DCCFF0` | Add a community Luma event | Paste a link → our calendar | `#DCCFF0` / `#FDFCFF` |
    | 📇 | `#E3F4EA` / `#BFE3CE` | Save a contact | Venue, sponsor, or vendor — not the list | `#BFE3CE` / `#FBFEFC` |
 
-5. **Section label:** `✨ Recent activity`
+6. **Section label:** `✨ Recent activity`
 
-6. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
+7. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
    - `Today` — 4 people added after the Somerville meetup
    - `Mon` — Reminder sent — 412 members
    - `Jul 24` — Added "Chess in the Park" to the calendar
 
 ### 2. Add to mailing list
 
-**Purpose:** the core flow. Get an email into the Google Group without opening a laptop.
+**Purpose:** the core flow. Capture an email at the door with zero member action; the coordinator finishes the add in the Google Group's own owner UI from home.
 
 **Layout:** a two-tab segmented control at top, then mode-specific content.
 
@@ -154,20 +157,24 @@ Row labels (shown to the user, not the pre-fill):
   - `Email` — placeholder `name@example.com`, IBM Plex Sans.
   - `Name` (optional) — placeholder `Alex Rivera`.
   - `Met them at` — chip row, wraps, `gap 8px`: `At an event` (default) · `Discord` · `Friend referral` · `Website form`.
-- **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Sends them a one-tap link to join `bgn-wg`. They tap Join on their phone; you never open a laptop." The group name renders in IBM Plex Mono 12px.
-- **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Send join link`, disabled label `Enter an email`.
-- **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Scan a QR sign-up sheet instead` → Scan screen.
+- **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Queues them on this device; you finish the add in `bgn-wg`'s Google Groups page from home — they do nothing at the door." The group name renders in IBM Plex Mono 12px.
+- **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Add to the list`, disabled label `Enter an email`.
+- **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Or send them the self-serve join link` — the demoted join-link fallback: hands the join-link message to the coordinator's own apps (device share sheet; mailto to the member where there is no Web Share API). Enabled on the same `/.+@.+\..+/` rule as the CTA, since the mailto fallback needs an address; disabled label `Enter an email to share the join link`.
 - **Agent handoff row.**
 
 **Mode: Paste a batch**
 
 - Card: label `Paste emails — commas, spaces, or one per line`, then textarea — same input styling but IBM Plex Mono 15px, `min-height 150px`, `resize: none`.
-- Below textarea, flex row `justify-content: space-between`: left 12.5px `#7D766B` showing `<n> valid addresses` or `Nothing pasted yet`; right 12.5px `#B34700` showing `<n> already on the list` when parsed addresses match the local roster (an empty stub until CSV roster sync exists).
+- Below textarea, flex row `justify-content: space-between`: left 12.5px `#7D766B` showing `<n> valid addresses` or `Nothing pasted yet`; right 12.5px `#B34700` showing `<n> already on the list` when parsed addresses match the local roster (an empty stub — roster CSV sync is deliberately not built; Google's own duplicate rejection covers dedupe, `docs/adr/0005-coordinator-initiated-adds.md`).
 - Parsing: split on `/[\s,;]+/`, keep tokens containing `@` past position 0.
-- **CTA:** `Send join link to <n> people`, disabled label `Paste some emails`.
+- **CTA:** `Queue <n> for the list`, disabled label `Paste some emails`.
 - **Agent handoff row.**
 
+**Capture mechanism (coordinator-initiated adds):** submitting queues the address(es) on-device in the durable offline queue — optimistic confirm, zero member action, no network. From Home, a non-empty queue shows a banner card leading to the **drain screen**: a copy-ready paste block of the queued addresses (FIFO) for Google Groups' owner Add members direct-add box, a deep link to `https://groups.google.com/g/bgn-wg/members`, and a per-address flag that moves entries into a second copy block for the invite box (an owner cannot direct-add an address without a Google account on `@googlegroups.com` groups, and the app cannot detect which path an address needs — it never guesses). Each batch is capped at 100 addresses and tracked against what was marked drained today, defending against the community-reported ~100/day owner-add throttle; the rest stays queued for the next batch. Marking the batch drained clears those queue entries, behind an on-screen confirm (the queue is the only copy of those addresses). The app copies text and opens a browser intent — it never sends or writes anything; the coordinator acting in Google's signed-in UI is the only write path (`docs/adr/0005-coordinator-initiated-adds.md`).
+
 ### 3. Scan sign-up sheet
+
+**Status: deliberately not built.** Open question 1 is answered no for v1 — batch paste is enough — so this screen stays unreachable (`docs/adr/0005-coordinator-initiated-adds.md`). The spec below is kept for whenever it is revisited.
 
 **Purpose:** clear the paper sheet from the door in one go.
 
@@ -196,7 +203,7 @@ Row labels (shown to the user, not the pre-fill):
 - **CTA:** `Send to <n> members` when the local roster has a count, else `Send to the list`; disabled label `Write something first` once the draft is empty. It opens a confirm step (`Send this message?` → `Open in my mail app` / `Keep editing`) before the send.
 - **Agent handoff row.**
 
-**Send mechanism:** confirming hands the edited draft to the coordinator's own mail app as a mailto to `bgn-wg@googlegroups.com` — mailing a Google Group's address *is* broadcasting to it, so the app sends nothing itself, same as the add flow (`docs/adr/0002-self-serve-join-link.md`).
+**Send mechanism:** confirming hands the edited draft to the coordinator's own mail app as a mailto to `bgn-wg@googlegroups.com` — mailing a Google Group's address *is* broadcasting to it, so the app sends nothing itself (`docs/adr/0002-self-serve-join-link.md`).
 
 **Member count:** there is no live source — consumer `googlegroups.com` groups have no membership API. The count comes from the same local roster the batch dupe check uses (an empty stub until CSV roster sync exists), and the copy drops the number entirely when the roster has none.
 
@@ -269,9 +276,9 @@ Copy per outcome:
 
 | Outcome | Title | Body |
 |---|---|---|
-| Single add | `Invite sent` | `<name or email> will get your message with the join link.` |
-| Batch add | `Invited <n> people` | `Your message with the join link is on the way. Anyone already on the list was skipped.` |
-| Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
+| Single add | `Queued for the list` | `<name or email> is queued on this device — finish the add in Google Groups from home.` |
+| Batch add | `Queued <n> for the list` | `They're queued on this device — finish the adds in Google Groups from home.` |
+| Scan | — | Deliberately skipped (captain decision, 2026-08-18, open question 1): the Scan screen stays unbuilt and unreachable, so it has no done copy. |
 | Message sent | `Message sent` | `Your mail app has the message — send it there to reach <n> members / the list. It'll also show up in the group archive.` |
 | Luma added | `Finish adding in Luma` | `Luma opens at our calendar's add-event panel. Paste the link there — <title> shows on our calendar once it's confirmed.` |
 | Contact saved | `Contact saved 📇` | `<name> is in the coordinator address book. No emails sent.` |
@@ -279,7 +286,7 @@ Copy per outcome:
 
 ## Interactions & Behavior
 
-**Navigation.** Single stack, one `screen` value: `home | add | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
+**Navigation.** Single stack, one `screen` value: `home | add | drain | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
 
 **Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `broadcast` resets `tpl` to `reminder`, which rebuilds the preview from the template copy and so drops any edited draft. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
 
@@ -294,8 +301,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; a cancelled add handoff leaves the add pending, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`). The Luma preview *is* one: its loading, offline, and unreadable-link states ship with the flow (`docs/adr/0004-credential-free-luma-handoff.md`).
-- Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one: its loading, offline, and unreadable-link states ship with the flow (`docs/adr/0004-credential-free-luma-handoff.md`).
 - Empty state for the recent-activity and agent-queue lists.
 
 **Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.
@@ -320,7 +326,7 @@ Prototype state, all local:
 
 **Real data needed.** Everything numeric or list-shaped in the prototype is hardcoded and must come from a source of truth:
 
-- **Mailing list** — member count (412) and the duplicate check still need a source of truth. Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 hands a self-serve join link to the coordinator's own apps instead. See `docs/adr/0002-self-serve-join-link.md`.
+- **Mailing list** — member count (412) and the duplicate check still need a source of truth (roster CSV sync is deliberately not built — Google's own duplicate rejection covers dedupe). Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 captures adds at the door and the coordinator drains the queue in Google Groups' own owner UI. See `docs/adr/0005-coordinator-initiated-adds.md`.
 - **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
 - **Luma** — no integration to build for v1: the metadata and the dedupe both come from read-only GETs of public lu.ma pages, and the add is a handoff into Luma's own panel rather than a write. The group's calendar (`GROUP_CALENDAR` in `src/backend.js`) is the one piece of configuration. See `docs/adr/0004-credential-free-luma-handoff.md`.
 - **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md`.
@@ -393,7 +399,7 @@ The app bundles the same faces instead (`@fontsource`, imported in `src/main.js`
 
 ## Open Questions for the Coordinators
 
-1. Is QR/OCR scanning at the door real, or is batch paste enough? (Affects whether screen 3 ships at all.)
+1. ~~Is QR/OCR scanning at the door real, or is batch paste enough?~~ Answered no for v1 — batch paste is enough, so screen 3 is deliberately skipped and stays unbuilt and unreachable (captain decision, 2026-08-18, `docs/adr/0005-coordinator-initiated-adds.md`).
 2. ~~Should Luma import check for duplicates against the existing calendar?~~ Answered yes — v1 ships a best-effort check against the calendar's public page, and a hit reads as already-on-calendar rather than an error (`docs/adr/0004-credential-free-luma-handoff.md`).
 3. What exactly may the Discord agent do unsupervised, and what always needs approval? The prototype assumes anything that emails members or spends money is gated.
 4. How many coordinators need access, and does the contact book need per-person privacy or is shared fine?

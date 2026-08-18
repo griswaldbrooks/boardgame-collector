@@ -11,10 +11,19 @@ import {
   resetLuma,
 } from "./state.js";
 import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
-import { enqueue, forward } from "./queue.js";
+import {
+  enqueue,
+  pendingAddresses,
+  nextBatch,
+  remainingToday,
+  markDrained,
+  DRAIN_LIMIT,
+} from "./queue.js";
 import {
   LIST_MAIL,
   handOffBroadcast,
+  handOffJoinLink,
+  openMembersPage,
   fetchEventPreview,
   fetchCalendarEvents,
   handOffLuma,
@@ -61,7 +70,7 @@ const ACTIONS = [
     icon: "📬",
     cls: "action-mail",
     title: "Add to mailing list",
-    sub: "Scan, paste, or type — batches too",
+    sub: "Paste or type — batches too",
     screen: "add",
   },
   {
@@ -156,7 +165,7 @@ function recentCard() {
       h(
         "div",
         { class: "empty" },
-        "Nothing yet — invites you send show up here.",
+        "Nothing yet — adds you queue and messages you send show up here.",
       ),
     );
   }
@@ -174,12 +183,44 @@ function recentCard() {
   );
 }
 
+// Queued at-door adds surface on Home so the coordinator can't lose them
+// (ADR 0005) — one tap to the drain screen. Hidden when the queue is empty.
+function queueCard() {
+  const n = pendingAddresses().length;
+  if (!n) return null;
+  return h(
+    "button",
+    {
+      class: "action-card action-mail",
+      type: "button",
+      onclick: () => go("drain"),
+    },
+    h("span", { class: "tile" }, "📥"),
+    h(
+      "span",
+      { class: "action-text" },
+      h(
+        "span",
+        { class: "action-title" },
+        `${n} queued ${n === 1 ? "add" : "adds"} — finish them at home`,
+      ),
+      h(
+        "span",
+        { class: "action-sub" },
+        "Paste them into Google Groups' own Add members",
+      ),
+    ),
+    h("span", { class: "action-chevron" }, "›"),
+  );
+}
+
 function homeScreen() {
   return shell(
     "Wednesday crew",
     "Home",
     false,
     nextEventCard(),
+    queueCard(),
     // The agent status strip renders only when the agent has work (spec);
     // the Discord agent isn't connected yet, so there is nothing to show.
     sectionLabel("👇 Do a thing"),
@@ -214,6 +255,9 @@ function fieldGroup(
   );
 }
 
+// Capture at the door (ADR 0005): submit just queues the address on this
+// device — optimistic confirm, zero member action, no network. The
+// coordinator drains the queue in Google Groups' own UI from home.
 function submitOne() {
   const email = state.email.trim();
   const name = state.name.trim();
@@ -223,26 +267,48 @@ function submitOne() {
     name: name || undefined,
     source: state.source,
   });
-  addActivity(`Sent join link to ${name || email}`);
+  addActivity(`Queued ${name || email} for the list`);
   go("done", { done: { kind: "one", who: name || email } });
-  forward(); // hand the join-link message to the coordinator's apps
 }
 
 function submitBatch() {
   const emails = parseBatch(state.batch);
   if (!emails.length) return;
   enqueue({ kind: "batch", emails });
-  addActivity(`Sent join link to ${emails.length} people`);
+  addActivity(`Queued ${emails.length} people for the list`);
   go("done", { done: { kind: "batch", n: emails.length } });
-  forward(); // one BCC'd message via the coordinator's mail app
+}
+
+// Demoted fallback (ADR 0005): when the member at the door can self-serve,
+// share the join link instead of queueing — the coordinator's own apps hand
+// it over, same as before the pivot.
+async function shareJoinLink() {
+  try {
+    await handOffJoinLink(state.email.trim());
+  } catch (err) {
+    // Cancelled share, or no share target and no valid email: the queue
+    // path is primary, so a failed fallback only logs.
+    console.warn(`[add] join-link handoff failed: ${err?.message ?? err}`);
+  }
 }
 
 function oneMode() {
   const submit = cta(
-    () => (isValidEmail(state.email) ? "Send join link" : "Enter an email"),
+    () => (isValidEmail(state.email) ? "Add to the list" : "Enter an email"),
     () => isValidEmail(state.email),
     submitOne,
   );
+  // The fallback needs an address too (no Web Share API in the Android
+  // WebView), so it carries the same gate and instruction-label idiom.
+  const share = cta(
+    () =>
+      isValidEmail(state.email)
+        ? "Or send them the self-serve join link"
+        : "Enter an email to share the join link",
+    () => isValidEmail(state.email),
+    shareJoinLink,
+  );
+  share.btn.className = "link-btn";
   const emailInput = h("input", {
     class: "input",
     inputmode: "email",
@@ -252,6 +318,7 @@ function oneMode() {
     oninput: (e) => {
       state.email = e.target.value;
       submit.update();
+      share.update();
     },
   });
   const nameInput = h("input", {
@@ -290,12 +357,13 @@ function oneMode() {
       h(
         "div",
         { class: "explain-body" },
-        "Sends them a one-tap link to join ",
+        "Queues them on this device; you finish the add in ",
         h("span", { class: "explain-addr" }, "bgn-wg"),
-        ". They tap Join on their phone; you never open a laptop.",
+        "'s Google Groups page from home — they do nothing at the door.",
       ),
     ),
     submit.btn,
+    share.btn,
     agentRow(
       "Have the agent pull everyone who reacted 🎲 in Discord onto the list",
       () => go("agent", { task: HANDOFF_TASK.add }),
@@ -315,7 +383,7 @@ function batchMode() {
   const submit = cta(
     () =>
       emails().length
-        ? `Send join link to ${emails().length} people`
+        ? `Queue ${emails().length} for the list`
         : "Paste some emails",
     () => emails().length > 0,
     submitBatch,
@@ -385,6 +453,250 @@ function addScreen() {
     h("div", { class: "tabs" }, tabOne, tabBatch),
     body,
   );
+}
+
+/* ------------------- 2b. Drain: finish the adds at Google -------------------
+ * Coordinator-facing (ADR 0005): queued addresses become a copy-ready paste
+ * block for Google Groups' owner "Add members" direct-add box, capped
+ * defensively at ~100/day, plus a second block for addresses the coordinator
+ * flags for the invite box. The app copies text and opens a deep link — the
+ * coordinator acting in Google's signed-in UI is the only write path. */
+
+function drainScreen() {
+  const flagged = new Set(); // indexes into the presented batch → invite box
+  const dyn = h("div", { class: "stack" });
+  const notice = h("div", { class: "confirm-notice" });
+
+  function copyBlock(text, btn, label) {
+    const flash = (msg, ms) => {
+      btn.textContent = msg;
+      setTimeout(() => {
+        btn.textContent = label;
+      }, ms);
+    };
+    if (!navigator.clipboard?.writeText) {
+      flash("Copy failed — select the text manually", 2400);
+      return;
+    }
+    navigator.clipboard
+      .writeText(text)
+      .then(() => flash("Copied ✓", 1600))
+      .catch((err) => {
+        console.warn(`[drain] clipboard copy failed: ${err?.message ?? err}`);
+        flash("Copy failed — select the text manually", 2400);
+      });
+  }
+
+  function pasteCard(title, hint, addresses) {
+    const label = `Copy ${addresses.length} ${addresses.length === 1 ? "address" : "addresses"}`;
+    const area = h("textarea", {
+      class: "input batch-area drain-paste",
+      readonly: "readonly",
+      "aria-label": title,
+      value: addresses.join("\n"),
+    });
+    return h(
+      "div",
+      { class: "card" },
+      h("div", { class: "card-title" }, title),
+      h("div", { class: "drain-hint" }, hint),
+      area,
+      h(
+        "button",
+        {
+          class: "btn-secondary",
+          type: "button",
+          onclick: (e) => copyBlock(area.value, e.currentTarget, label),
+        },
+        label,
+      ),
+    );
+  }
+
+  async function openGoogle() {
+    try {
+      await openMembersPage();
+    } catch (err) {
+      console.warn(
+        `[drain] couldn't open Google Groups: ${err?.message ?? err}`,
+      );
+      notice.textContent = "Couldn't open the browser. Try again.";
+    }
+  }
+
+  function repaint() {
+    notice.textContent = "";
+    const pending = pendingAddresses();
+    if (!pending.length) {
+      dyn.replaceChildren(
+        h(
+          "div",
+          { class: "card" },
+          h(
+            "div",
+            { class: "empty" },
+            "Nothing queued. Adds you capture at the door wait here — finish them in Google Groups' Add members when you're home.",
+          ),
+        ),
+      );
+      return;
+    }
+    const left = remainingToday();
+    if (!left) {
+      dyn.replaceChildren(
+        h(
+          "div",
+          { class: "card" },
+          h("div", { class: "card-title" }, "Today's budget is used up"),
+          h(
+            "div",
+            { class: "card-body" },
+            `${DRAIN_LIMIT} adds marked drained today — Google throttles owner adds (community-reported ~${DRAIN_LIMIT}/day, 24h+ to recover). ${pending.length} stay queued for tomorrow.`,
+          ),
+        ),
+      );
+      return;
+    }
+    const batch = nextBatch();
+    const more = pending.length - batch.length;
+    const direct = batch.filter((_, i) => !flagged.has(i));
+    const invites = batch.filter((_, i) => flagged.has(i));
+
+    // Tap an address's chip to move it between the direct-add and invite
+    // blocks — the app can't tell which path an address needs, so it never
+    // guesses on its own (ADR 0005).
+    const rows = batch.map((email, i) =>
+      h(
+        "div",
+        { class: "drain-row" },
+        h("div", { class: "drain-addr" }, email),
+        h(
+          "button",
+          {
+            class: flagged.has(i)
+              ? "chip chip-on drain-flag"
+              : "chip drain-flag",
+            type: "button",
+            onclick: () => {
+              if (flagged.has(i)) flagged.delete(i);
+              else flagged.add(i);
+              repaint();
+            },
+          },
+          flagged.has(i) ? "Invite" : "Direct",
+        ),
+      ),
+    );
+
+    const mark = cta(
+      () => "Mark batch drained ✓",
+      () => true,
+      () => setConfirming(true),
+    );
+
+    // Clearing the entries is irreversible and this queue is their only
+    // copy, so confirm first — same shape as the broadcast handoff.
+    const confirmBlock = h(
+      "div",
+      { class: "stack" },
+      h(
+        "div",
+        { class: "card" },
+        h("div", { class: "card-title" }, "Clear this batch from the queue?"),
+        h(
+          "div",
+          { class: "card-body" },
+          `This drops ${batch.length} queued ${batch.length === 1 ? "address" : "addresses"} from this device for good. Only do it once you've submitted them in Google Groups' own Add members box.`,
+        ),
+      ),
+      h(
+        "button",
+        {
+          class: "cta",
+          type: "button",
+          onclick: () => {
+            markDrained(batch);
+            flagged.clear();
+            addActivity(
+              `Drained ${batch.length} ${batch.length === 1 ? "add" : "adds"} in Google Groups`,
+            );
+            repaint();
+          },
+        },
+        "Yes — they're in Google Groups",
+      ),
+      h(
+        "button",
+        {
+          class: "btn-secondary",
+          type: "button",
+          onclick: () => setConfirming(false),
+        },
+        "Keep them queued",
+      ),
+    );
+
+    const tail = h("div", { class: "stack" }, mark.btn);
+    function setConfirming(on) {
+      tail.replaceChildren(on ? confirmBlock : mark.btn);
+    }
+
+    // replaceChildren would stringify a null child, so drop the invite card
+    // slot when nothing is flagged.
+    dyn.replaceChildren(
+      ...[
+        h(
+          "div",
+          { class: "explain" },
+          h("div", { class: "explain-glyph" }, "◔"),
+          h(
+            "div",
+            { class: "explain-body" },
+            "Copy the direct-add block into Google Groups' Add members box and submit it there. If Google rejects an address it usually has no Google account — tap its chip to move it to the invite block.",
+          ),
+        ),
+        h(
+          "div",
+          { class: "card rows-card" },
+          h(
+            "div",
+            { class: "drain-rows-title" },
+            `This batch · ${batch.length} ${batch.length === 1 ? "address" : "addresses"}`,
+          ),
+          rows,
+        ),
+        direct.length
+          ? pasteCard(
+              "Direct add — copy this block",
+              "Google Groups → Members → Add members → the direct-add box.",
+              direct,
+            )
+          : null,
+        invites.length
+          ? pasteCard(
+              "Invite — copy this block",
+              "Paste these into the invite box instead — Google can't direct-add them.",
+              invites,
+            )
+          : null,
+        h(
+          "button",
+          { class: "btn-secondary", type: "button", onclick: openGoogle },
+          "Open the members page at Google Groups",
+        ),
+        h(
+          "div",
+          { class: "drain-note" },
+          `${left} of ~${DRAIN_LIMIT} adds left today${more ? ` · ${more} more queued for the next batch` : ""}`,
+        ),
+        notice,
+        tail,
+      ].filter((n) => n != null),
+    );
+  }
+
+  repaint();
+  return shell("Mailing list", "Finish the adds", true, dyn);
 }
 
 /* --------------------------- 4. Message the list --------------------------- */
@@ -952,13 +1264,15 @@ function contactScreen() {
 /* --------------------------- 8. Done (shared) --------------------------- */
 
 const DONE_COPY = {
+  // Capture-at-door honesty (ADR 0005): the add is queued on this device, not
+  // finished — the Done copy says so, and names where it gets finished.
   one: (d) => [
-    "Invite sent",
-    `${d.who} will get your message with the join link.`,
+    "Queued for the list",
+    `${d.who} is queued on this device — finish the add in Google Groups from home.`,
   ],
   batch: (d) => [
-    `Invited ${d.n} people`,
-    "Your message with the join link is on the way. Anyone already on the list was skipped.",
+    `Queued ${d.n} for the list`,
+    "They're queued on this device — finish the adds in Google Groups from home.",
   ],
   contact: (d) => [
     "Contact saved 📇",
@@ -1056,6 +1370,7 @@ function agentScreen(opts) {
 const SCREENS = {
   home: homeScreen,
   add: addScreen,
+  drain: drainScreen,
   broadcast: broadcastScreen,
   done: doneScreen,
   agent: agentScreen,

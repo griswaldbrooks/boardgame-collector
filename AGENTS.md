@@ -12,17 +12,24 @@ The design spec lives in `README.md` (handoff spec).
 
 Flow 1 (Home → Add to mailing list → Done), Flow 2 (Message the list), and
 Flow 4 (Save a contact) are implemented in framework-free ES modules under
-`src/`. The v1 add mechanism is the self-serve join link: the app composes the
-join-link message and hands it to the coordinator's own apps (share sheet /
-BCC mailto); it never sends anything itself — see
-`docs/adr/0002-self-serve-join-link.md`. The single swap point for a future
-mechanism is `handOff()` in `src/backend.js`, fed by the store-and-forward
-queue in `src/queue.js`. Flow 2's broadcast follows the same pattern: a
-confirmed mailto to the group's own address (`handOffBroadcast()` in
-`src/backend.js`), deliberately NOT queued — the on-screen confirm step is the
-retry, and a parked broadcast must not block join-link handoffs at the queue
-head. There is no live member count (consumer Groups have no API): the empty
-local roster stub drives the broadcast CTA/kicker once CSV roster sync lands.
+`src/`. The v1 add mechanism is coordinator-initiated (captain decision
+2026-08-18, `docs/adr/0005-coordinator-initiated-adds.md`, superseding-in-part
+ADR 0002): the door screens queue addresses in the device-local queue
+(`src/queue.js`) with zero member action; the drain screen (reachable from
+Home when the queue is non-empty) presents copy-ready paste blocks for Google
+Groups' owner Add members UI — FIFO batches capped defensively at ~100/day,
+with a per-address flag that moves entries to the invite block — plus a deep
+link to the members page, and mark-drained clears the entries. The app never
+sends or writes anything; the swap points for a future mechanism are the drain
+block and `MEMBERS_URL` in `src/backend.js`. The self-serve join link survives
+as a demoted secondary fallback on the single-add screen (ADR 0002). Flow 2's
+broadcast follows the same handoff pattern: a confirmed mailto to the group's
+own address (`handOffBroadcast()` in `src/backend.js`), deliberately NOT
+queued — the on-screen confirm step is the retry, and a parked broadcast must
+not sit in the add queue. There is no live member count (consumer Groups have
+no API), and roster CSV sync is deliberately NOT built (captain decision,
+2026-08-18 — Google's own duplicate rejection covers dedupe); the empty local
+roster stub drives the broadcast CTA/kicker and the batch dupe line.
 Flow 4 (save a contact) keeps a local-only contact book in `src/contacts.js`
 (same localStorage approach as the queue; nothing leaves the device — see
 `docs/adr/0003-device-local-contact-book.md`). Flow 3 (add a community Luma
@@ -34,13 +41,16 @@ handoff into Luma's own Add Event panel — the app never writes anywhere;
 calendar's slug is the `GROUP_CALENDAR` constant there (see
 `docs/adr/0004-credential-free-luma-handoff.md`). The agent flow renders as
 a stub; the batch dupe check uses the same empty roster stub. Screen 3
-(scan) is deliberately unbuilt — it hangs on README open question 1.
+(scan) is deliberately unbuilt: README open question 1 was answered no
+(captain decision, 2026-08-18 — batch paste is enough), so it stays
+unreachable.
 
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
-  the join-link + broadcast compose logic, and the Luma extraction/dedupe
+  the join-link + broadcast compose logic, the capture/drain queue
+  (batching, mark-drained, daily budget), and the Luma extraction/dedupe
   chain against fabricated fixtures — no browser needed).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /

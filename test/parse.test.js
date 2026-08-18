@@ -6,7 +6,6 @@ import {
   LIST_MAIL,
   composeMessage,
   singleMailtoUri,
-  batchMailtoUri,
   broadcastMailtoUri,
 } from "../src/backend.js";
 
@@ -49,6 +48,8 @@ test("batch parse dedupes, first occurrence wins", () => {
   );
 });
 
+// The join link is the demoted secondary fallback (ADR 0005), so its
+// composer still carries the link and the subscribe fallback.
 test("join-link message carries the link and the subscribe fallback", () => {
   const msg = composeMessage();
   assert.ok(msg.includes(JOIN_LINK));
@@ -58,13 +59,6 @@ test("join-link message carries the link and the subscribe fallback", () => {
 test("single mailto is addressed to the new member", () => {
   const uri = singleMailtoUri("alex@example.com");
   assert.ok(uri.startsWith("mailto:alex%40example.com?"));
-  assert.ok(uri.includes(encodeURIComponent(JOIN_LINK)));
-});
-
-test("batch mailto puts every pasted address in BCC", () => {
-  const uri = batchMailtoUri(["a@example.com", "b@example.com"]);
-  assert.ok(uri.startsWith("mailto:?bcc="));
-  assert.ok(uri.includes("a%40example.com,b%40example.com"));
   assert.ok(uri.includes(encodeURIComponent(JOIN_LINK)));
 });
 
