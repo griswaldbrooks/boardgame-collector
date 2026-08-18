@@ -130,7 +130,7 @@ Row labels (shown to the user, not the pre-fill):
 
    | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
    |---|---|---|---|---|
-   | 📬 | `#FFE9D2` / `#FFCFA6` | Add to mailing list | Scan, paste, or type — batches too | `#FFCFA6` / `#FFFDF9` |
+   | 📬 | `#FFE9D2` / `#FFCFA6` | Add to mailing list | Paste or type — batches too | `#FFCFA6` / `#FFFDF9` |
    | 📣 | `#E8EEF9` / `#CFDCF2` | Message the list | Announce or remind, from a template | `#CFDCF2` / `#FCFDFF` |
    | 🗓️ | `#EDE6F7` / `#DCCFF0` | Add a community Luma event | Paste a link → our calendar | `#DCCFF0` / `#FDFCFF` |
    | 📇 | `#E3F4EA` / `#BFE3CE` | Save a contact | Venue, sponsor, or vendor — not the list | `#BFE3CE` / `#FBFEFC` |

@@ -70,7 +70,7 @@ const ACTIONS = [
     icon: "📬",
     cls: "action-mail",
     title: "Add to mailing list",
-    sub: "Scan, paste, or type — batches too",
+    sub: "Paste or type — batches too",
     screen: "add",
   },
   {
