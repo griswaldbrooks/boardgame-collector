@@ -1,7 +1,9 @@
 // Flow 3 (Add a community Luma event): extraction chain, per-field
-// degradation, URL normalization, and the best-effort dedupe match.
-// All fixtures below are fabricated — obviously fake events and calendars,
-// never the group's real calendar (docs/adr/0004).
+// degradation, URL normalization, and the best-effort dedupe match — plus
+// the calendar-entry helpers Home's next-event card renders from
+// (nextUpcoming / daysOut / formatWhenRange). All fixtures below are
+// fabricated — obviously fake events and calendars, never the group's
+// real calendar (docs/adr/0004).
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -10,8 +12,12 @@ import {
   slugOf,
   parseEventPage,
   formatWhen,
+  formatWhenRange,
   parseCalendarEvents,
   findDuplicate,
+  nextUpcoming,
+  daysOut,
+  daysOutLabel,
 } from "../src/luma.js";
 
 /* ------------------------------ URL normalization ------------------------------ */
@@ -213,8 +219,10 @@ const CALENDAR_PAGE = `<html><body>
 <script id="__NEXT_DATA__" type="application/json">
 {"props":{"pageProps":{"initialData":{"data":{
   "featured_items":[
-    {"name":"Fixture Game Night","start_at":"2026-09-03T22:30:00.000Z","platform":"luma","status":"approved","tags":[],
-     "event":{"api_id":"evt-FakeFakeFakeFak","url":"fake1234"}},
+    {"name":"Fixture Game Night","start_at":"2026-09-03T22:30:00.000Z","guest_count":12,"platform":"luma","status":"approved","tags":[],
+     "event":{"api_id":"evt-FakeFakeFakeFak","url":"fake1234",
+              "start_at":"2026-09-03T22:30:00.000Z","end_at":"2026-09-04T01:30:00.000Z","timezone":"America/New_York","hide_rsvp":false,
+              "geo_address_info":{"mode":"visible","address":"Fixture Hall, 1 Main St","city_state":"Springfield, MA"}}},
     {"name":"Trivia Tuesday","start_at":"2026-09-08T23:00:00.000Z","platform":"external","status":"approved","tags":[],
      "event":{"api_id":"evt-TriviaTriviaTri","url":"https://example.com/trivia"}}
   ]
@@ -228,14 +236,73 @@ test("parseCalendarEvents pulls ids + slugs from the embedded upcoming list", ()
     eventId: "evt-FakeFakeFakeFak",
     slug: "fake1234",
     name: "Fixture Game Night",
+    startAt: "2026-09-03T22:30:00.000Z",
+    endAt: "2026-09-04T01:30:00.000Z",
+    timezone: "America/New_York",
+    venue: "Fixture Hall, 1 Main St",
+    guestCount: 12,
+    hideRsvp: false,
   });
   assert.equal(events[1].eventId, "evt-TriviaTriviaTri");
 });
 
-test("parseCalendarEvents is best-effort: unreadable pages yield []", () => {
-  assert.deepEqual(parseCalendarEvents(""), []);
-  assert.deepEqual(parseCalendarEvents("<html>no next data here</html>"), []);
-  // A reshaped page that still carries the list somewhere under data.
+test("parseCalendarEvents: a bare external entry degrades every card field to null", () => {
+  const e = parseCalendarEvents(CALENDAR_PAGE)[1];
+  assert.equal(e.startAt, "2026-09-08T23:00:00.000Z"); // item-level start survives
+  assert.equal(e.endAt, null);
+  assert.equal(e.timezone, null);
+  assert.equal(e.venue, null);
+  assert.equal(e.guestCount, null);
+  assert.equal(e.hideRsvp, false);
+});
+
+test("parseCalendarEvents: an event-level guest count still feeds the RSVP tile", () => {
+  const page = `<script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"featured_items":[
+      {"name":"Nested Count Night",
+       "event":{"api_id":"evt-NestedCountAaa","url":"nested-count-night","guest_count":9}}
+    ]}}}}}
+  </script>`;
+  assert.equal(parseCalendarEvents(page)[0].guestCount, 9);
+});
+
+test("parseCalendarEvents: obfuscated venue degrades to city level", () => {
+  const page = `<script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"featured_items":[
+      {"name":"Hidden Loft Night","guest_count":7,
+       "event":{"api_id":"evt-HiddenVenueFake","url":"hidden77",
+                "start_at":"2026-09-10T22:00:00.000Z","timezone":"America/New_York","hide_rsvp":true,
+                "geo_address_info":{"mode":"obfuscated","address":"Secret Loft","city_state":"Boston, MA"}}}
+    ]}}}}}</script>`;
+  const e = parseCalendarEvents(page)[0];
+  assert.equal(e.venue, "Boston, MA"); // street address suppressed by the host
+  assert.equal(e.guestCount, 7); // the parser carries the count…
+  assert.equal(e.hideRsvp, true); // …the card decides not to render it
+});
+
+test("parseCalendarEvents: unreadable pages yield null, not an empty list", () => {
+  assert.equal(parseCalendarEvents(""), null);
+  assert.equal(parseCalendarEvents("<html>no next data here</html>"), null);
+  // Recognizable page shape, but no list container we know how to read.
+  const noList = `<script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"calendar":{"name":"Ours"}}}}}}</script>`;
+  assert.equal(parseCalendarEvents(noList), null);
+  // The container survived but its items were renamed: the markup moved,
+  // so this is unreadable — never a (false) empty calendar.
+  const renamedItems = `<script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"featured_items":[
+      {"name":"Renamed Fields Night","event":{"id":"evt-RenamedFake123","slug":"renamed99"}}
+    ]}}}}}</script>`;
+  assert.equal(parseCalendarEvents(renamedItems), null);
+});
+
+test("parseCalendarEvents: a recognized but empty list yields []", () => {
+  const empty = `<script id="__NEXT_DATA__" type="application/json">
+    {"props":{"pageProps":{"initialData":{"data":{"featured_items":[]}}}}}</script>`;
+  assert.deepEqual(parseCalendarEvents(empty), []);
+});
+
+test("parseCalendarEvents: a reshaped page still finds the list under data", () => {
   const reshaped = `<script id="__NEXT_DATA__" type="application/json">
     {"props":{"pageProps":{"initialData":{"data":{"upcoming":[
       {"name":"Moved List","event":{"api_id":"evt-MovedListFake12","url":"moved999"}}
@@ -261,4 +328,165 @@ test("findDuplicate matches by evt id first, then by slug, else null", () => {
     null,
   );
   assert.equal(findDuplicate({ url: null, eventId: null }, events), null);
+});
+
+/* ------------------------- next-event card helpers ------------------------- */
+
+test("formatWhenRange renders a same-day range with one am/pm (spec §1 line)", () => {
+  assert.equal(
+    formatWhenRange(
+      "2026-08-05T18:00:00.000-04:00",
+      "2026-08-05T21:00:00.000-04:00",
+    ),
+    "Wednesday, Aug 5 · 6:00–9:00 pm",
+  );
+  // UTC + IANA zone: 22:00–01:00Z on Sep 9/10 is 6–9pm wall time, same day.
+  assert.equal(
+    formatWhenRange(
+      "2026-09-09T22:00:00.000Z",
+      "2026-09-10T01:00:00.000Z",
+      "America/New_York",
+    ),
+    "Wednesday, Sep 9 · 6:00–9:00 pm",
+  );
+});
+
+test("formatWhenRange keeps both am/pm when the range crosses noon", () => {
+  assert.equal(
+    formatWhenRange(
+      "2026-08-05T11:00:00.000-04:00",
+      "2026-08-05T13:30:00.000-04:00",
+    ),
+    "Wednesday, Aug 5 · 11:00 am–1:30 pm",
+  );
+});
+
+test("formatWhenRange drops an overnight or missing end instead of misdating it", () => {
+  // Wall times cross midnight: Sep 9 6pm → Sep 10 1am.
+  assert.equal(
+    formatWhenRange(
+      "2026-09-09T18:00:00.000-04:00",
+      "2026-09-10T01:00:00.000-04:00",
+    ),
+    "Wednesday, Sep 9 · 6:00 pm",
+  );
+  assert.equal(
+    formatWhenRange("2026-09-09T22:00:00.000Z", null, "America/New_York"),
+    "Wednesday, Sep 9 · 6:00 pm",
+  );
+});
+
+test("formatWhenRange degrades on junk input", () => {
+  assert.equal(formatWhenRange(null, null), null);
+  assert.equal(formatWhenRange("not a date", null), null);
+});
+
+test("nextUpcoming picks the soonest entry that hasn't ended", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  const events = [
+    { name: "Later", startAt: "2026-09-01T22:00:00Z" },
+    {
+      name: "Soonest",
+      startAt: "2026-08-20T00:30:00Z",
+      endAt: "2026-08-20T04:00:00Z",
+    },
+    {
+      name: "Past",
+      startAt: "2026-08-10T22:00:00Z",
+      endAt: "2026-08-11T01:00:00Z",
+    },
+    { name: "Undated" },
+  ];
+  assert.equal(nextUpcoming(events, now).name, "Soonest");
+});
+
+test("nextUpcoming: an in-progress event still counts; an ended one doesn't", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  const live = [
+    {
+      name: "Running",
+      startAt: "2026-08-18T18:00:00Z",
+      endAt: "2026-08-18T21:00:00Z",
+    },
+  ];
+  assert.equal(nextUpcoming(live, now).name, "Running");
+  const ended = [
+    {
+      name: "Done",
+      startAt: "2026-08-18T15:00:00Z",
+      endAt: "2026-08-18T18:00:00Z",
+    },
+  ];
+  assert.equal(nextUpcoming(ended, now), null);
+  // No end date: the start is the deadline instead.
+  const startOnly = [{ name: "Started", startAt: "2026-08-18T15:00:00Z" }];
+  assert.equal(nextUpcoming(startOnly, now), null);
+});
+
+test("nextUpcoming: empty / all-past / junk lists yield null", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  assert.equal(nextUpcoming([], now), null);
+  assert.equal(nextUpcoming(null, now), null);
+  assert.equal(nextUpcoming([{ name: "Undated" }], now), null);
+  assert.equal(nextUpcoming([{ startAt: "garbage" }], now), null);
+});
+
+test("daysOut counts calendar days in the event's own timezone", () => {
+  // 2026-08-21T00:30Z is Aug 20 wall time in Los Angeles — the venue's day
+  // boundary, not the UTC one, is what the chip counts.
+  const start = "2026-08-21T00:30:00.000Z";
+  assert.equal(
+    daysOut(start, "America/Los_Angeles", new Date("2026-08-18T19:00:00Z")),
+    2,
+  );
+  assert.equal(
+    daysOut(start, "America/Los_Angeles", new Date("2026-08-19T19:00:00Z")),
+    1,
+  );
+  assert.equal(
+    daysOut(start, "America/Los_Angeles", new Date("2026-08-20T19:00:00Z")),
+    0,
+  );
+});
+
+test("daysOut agrees with the card line on offset-bearing starts", () => {
+  // No event timezone (external-platform entry): the chip must count from
+  // the offset in the string, not the device zone, or it can read
+  // "Tomorrow" under a line that says tonight.
+  const start = "2026-08-19T23:00:00-04:00";
+  assert.match(
+    formatWhenRange(start, null, null),
+    /Wednesday, Aug 19 · 11:00 pm/,
+  );
+  assert.equal(daysOut(start, null, new Date("2026-08-19T20:00:00Z")), 0);
+  assert.equal(daysOut(start, null, new Date("2026-08-19T02:00:00Z")), 1);
+});
+
+test("daysOut degrades on junk input", () => {
+  assert.equal(daysOut(null, "America/New_York"), null);
+  assert.equal(daysOut("not a date", "America/New_York"), null);
+  assert.equal(daysOut("2026-08-21T00:30:00.000Z", "Not/AZone"), null);
+});
+
+test("daysOutLabel clamps an in-progress overnight event to Today", () => {
+  // Started 8:00 pm, ends 1:00 am — at 00:30 the chip must not read "-1
+  // days out" above a line showing yesterday's date.
+  const start = "2026-08-19T20:00:00-04:00";
+  assert.equal(
+    daysOutLabel(start, "America/New_York", new Date("2026-08-20T04:30:00Z")),
+    "Today",
+  );
+  assert.equal(
+    daysOutLabel(start, "America/New_York", new Date("2026-08-19T18:00:00Z")),
+    "Today",
+  );
+  assert.equal(
+    daysOutLabel(start, "America/New_York", new Date("2026-08-18T18:00:00Z")),
+    "Tomorrow",
+  );
+  assert.equal(
+    daysOutLabel(start, "America/New_York", new Date("2026-08-16T18:00:00Z")),
+    "3 days out",
+  );
+  assert.equal(daysOutLabel("not a date", "America/New_York"), null);
 });

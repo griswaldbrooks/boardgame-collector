@@ -39,7 +39,16 @@ for preview + best-effort dedupe (`src/luma.js` pure parsers,
 handoff into Luma's own Add Event panel — the app never writes anywhere;
 `handOffLuma()` in `src/backend.js` is the swap point, and the group
 calendar's slug is the `GROUP_CALENDAR` constant there (see
-`docs/adr/0004-credential-free-luma-handoff.md`). The agent flow renders as
+`docs/adr/0004-credential-free-luma-handoff.md`). Home's next-event card
+renders from that same credential-free calendar read
+(`fetchCalendarEvents()`, one GET per Home entry): pure helpers in
+`src/luma.js` pick the soonest not-ended event and render the date range,
+venue, RSVP count, and days-out chip; the last successful read is cached
+in localStorage (`bgn.calendar.v1`) so a venue-door cold start on bad
+wifi shows the last known event, marked as such. RSVPs render only when
+the public surface carries them; the capacity tile is omitted — the
+surface carries no capacity number (`ticket_count` mirrors
+`guest_count`), so it would have to be faked. The agent flow renders as
 a stub; the batch dupe check uses the same empty roster stub. Screen 3
 (scan) is deliberately unbuilt: README open question 1 was answered no
 (captain decision, 2026-08-18 — batch paste is enough), so it stays

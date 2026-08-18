@@ -115,10 +115,11 @@ Row labels (shown to the user, not the pre-fill):
 
 **Layout:** vertical stack, `gap 14px`.
 
-1. **Next event card**
-   - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `6 days out`.
-   - Two lines, 14px `#444`: `Wednesday, Aug 5 · 6:00–9:00 pm` / `Cambridge Public Library, Lecture Hall`.
-   - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **34** RSVPs · **50** Capacity · **412** On the list.
+1. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it.
+   - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `Today` / `Tomorrow` / `<n> days out`, counted in the event's own timezone and hidden when the start can't be read.
+   - Two lines, 14px `#444`: the date and time range (`Wednesday, Aug 5 · 6:00–9:00 pm`; the end time drops when it is missing or the event runs overnight) then the venue (`Cambridge Public Library, Lecture Hall`).
+   - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **RSVPs**, only when the public calendar carries the count and the event doesn't hide it, then **On the list**, which waits on a member-count source of truth (the roster stub is empty, so it doesn't render yet). There is no **Capacity** stat: the public surface carries no capacity number, so the tile is omitted rather than faked — the prototype's 34/50/412 were placeholders.
+   - States, in the lines' place: spinner + `Pulling next event…` on a cold start, `No upcoming events on the calendar.` when the calendar has none, `Couldn't reach the calendar.` when the read fails or its page no longer parses. The last successful read is cached on the device (`bgn.calendar.v1`), so a venue-door cold start on bad wifi shows the last known event instead of nothing — marked `Last known — pulled <n> min ago` while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails. Never unmarked stale data; a failed read never overwrites the cache or claims the calendar is empty.
 
 2. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
 
@@ -301,7 +302,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one: its loading, offline, and unreadable-link states ship with the flow (`docs/adr/0004-credential-free-luma-handoff.md`).
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one, and so is Home's next-event card: their loading, offline, and empty states ship with them, and the card falls back to the last cached read, marked as such (`docs/adr/0004-credential-free-luma-handoff.md`).
 - Empty state for the recent-activity and agent-queue lists.
 
 **Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.
@@ -327,7 +328,7 @@ Prototype state, all local:
 **Real data needed.** Everything numeric or list-shaped in the prototype is hardcoded and must come from a source of truth:
 
 - **Mailing list** — member count (412) and the duplicate check still need a source of truth (roster CSV sync is deliberately not built — Google's own duplicate rejection covers dedupe). Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 captures adds at the door and the coordinator drains the queue in Google Groups' own owner UI. See `docs/adr/0005-coordinator-initiated-adds.md`.
-- **Event source** — next event date, venue, RSVP and capacity counts (34/50). Probably Luma, matching the existing site.
+- **Event source** — answered: Home's next-event card reads the group's public Luma calendar (`GROUP_CALENDAR` in `src/backend.js`), the same credential-free read as flow 3, for the date/time, venue, and RSVP count. Capacity has no source — that surface carries no capacity number — so the stat is gone rather than faked. See `docs/adr/0004-credential-free-luma-handoff.md`.
 - **Luma** — no integration to build for v1: the metadata and the dedupe both come from read-only GETs of public lu.ma pages, and the add is a handoff into Luma's own panel rather than a write. The group's calendar (`GROUP_CALENDAR` in `src/backend.js`) is the one piece of configuration. See `docs/adr/0004-credential-free-luma-handoff.md`.
 - **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md`.
 - **Discord** — bot in the coordinators server; task queue with status; approval callbacks for anything that emails or spends.

@@ -71,8 +71,9 @@ export function broadcastMailtoUri(subject, body) {
 
 // The group's community calendar (captain-confirmed: a Luma calendar,
 // admined by the captain's account; identified 2026-08-16 by resolving the
-// calendar id to its public slug). The public page feeds the dedupe read;
-// the manage page is the handoff deep-link target.
+// calendar id to its public slug). The public page feeds the calendar read
+// (flow 3's dedupe and Home's next-event card); the manage page is the
+// handoff deep-link target.
 export const GROUP_CALENDAR = {
   name: "Board Game Night WG",
   slug: "boardgamenightwg",
@@ -124,10 +125,42 @@ export async function fetchEventPreview(url) {
 }
 
 // Upcoming events embedded in the group calendar's public page — the
-// best-effort dedupe read. Throws when the page can't be read; the screen
-// then says so and never blocks the add.
+// best-effort dedupe read, and the one read Home's next-event card makes
+// (one GET per Home entry). Throws when the page can't be fetched and
+// resolves null when its structure isn't recognized; the screens render
+// both as "couldn't read" — and never block the add.
 export async function fetchCalendarEvents() {
   return parseCalendarEvents(await fetchLumaPage(calendarUrl()));
+}
+
+// Last successful calendar read, cached for Home's next-event card: a
+// venue-door cold start on bad wifi shows the last known event (marked as
+// such) rather than nothing. Same localStorage approach as the add queue.
+// The list is cached, not the pick — selection runs against the current
+// clock at render time, so a stale cache can never show a past event as
+// upcoming.
+const CALENDAR_CACHE_KEY = "bgn.calendar.v1";
+
+export function loadCalendarCache() {
+  try {
+    return JSON.parse(localStorage.getItem(CALENDAR_CACHE_KEY)) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// Swallows storage failures (quota, DOM storage off in the WebView): the
+// cache is a cold-start nicety, and losing it must not turn a successful
+// read into the card's error state.
+export function saveCalendarCache(events) {
+  try {
+    localStorage.setItem(
+      CALENDAR_CACHE_KEY,
+      JSON.stringify({ ts: Date.now(), events }),
+    );
+  } catch (err) {
+    console.warn(`[luma] calendar cache write failed: ${err?.message ?? err}`);
+  }
 }
 
 // Hand the confirmed event to Luma's own Add Event panel: the event URL goes

@@ -27,8 +27,17 @@ import {
   fetchEventPreview,
   fetchCalendarEvents,
   handOffLuma,
+  loadCalendarCache,
+  saveCalendarCache,
 } from "./backend.js";
-import { normalizeLumaUrl, formatWhen, findDuplicate } from "./luma.js";
+import {
+  normalizeLumaUrl,
+  formatWhen,
+  formatWhenRange,
+  findDuplicate,
+  nextUpcoming,
+  daysOutLabel,
+} from "./luma.js";
 import { saveContact, listContacts, rowOf } from "./contacts.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
@@ -96,9 +105,100 @@ const ACTIONS = [
   },
 ];
 
+// Home's next event, live from the group's public Luma calendar — the same
+// credential-free read Flow 3's dedupe uses (docs/adr/0004), one GET per
+// Home entry. States: cached last-known (marked) while the read is in
+// flight or when it fails, loading when nothing is cached, offline/error,
+// and empty. RSVP renders only when the public data carries it; the
+// surface has no capacity number, so that tile is omitted rather than
+// faked (the spec's 34/50 were prototype placeholders).
 function nextEventCard() {
-  // PLACEHOLDER data (spec copy). The event source integration — real date,
-  // venue, RSVP/capacity/member counts — is future work.
+  const pill = h("span", { class: "pill" });
+  pill.style.display = "none";
+  const dyn = h("div", { class: "event-body" });
+
+  function paintEvent(entry, note) {
+    const label = daysOutLabel(entry.startAt, entry.timezone);
+    pill.textContent = label ?? "";
+    pill.style.display = label == null ? "none" : "";
+    const lines = [
+      formatWhenRange(entry.startAt, entry.endAt, entry.timezone),
+      entry.venue,
+    ].filter(Boolean);
+    const stats = [];
+    if (entry.guestCount != null && !entry.hideRsvp)
+      stats.push(stat(String(entry.guestCount), "RSVPs"));
+    // No capacity tile: the public surface carries no capacity number.
+    const members = memberCount();
+    if (members) stats.push(stat(String(members), "On the list"));
+    // replaceChildren stringifies null args into "null" text nodes — filter.
+    dyn.replaceChildren(
+      ...[
+        lines.length
+          ? h(
+              "div",
+              { class: "event-lines" },
+              lines.map((t) => h("div", { class: "event-line" }, t)),
+            )
+          : null,
+        stats.length ? h("div", { class: "stat-row" }, stats) : null,
+        note ? h("div", { class: "event-note" }, note) : null,
+      ].filter(Boolean),
+    );
+  }
+  const paintNote = (text) => {
+    pill.style.display = "none";
+    dyn.replaceChildren(h("div", { class: "event-note" }, text));
+  };
+  const paintLoading = () => {
+    pill.style.display = "none";
+    dyn.replaceChildren(
+      h(
+        "div",
+        { class: "event-note" },
+        h("span", { class: "spinner" }),
+        "Pulling next event…",
+      ),
+    );
+  };
+
+  const cache = loadCalendarCache();
+  const cachedNext = nextUpcoming(cache?.events);
+  if (cachedNext)
+    paintEvent(cachedNext, `Last known — pulled ${agoLabel(cache?.ts)}`);
+  else paintLoading();
+
+  // Unreadable is not empty: a null parse (markup we no longer recognize)
+  // takes the same path as a network failure, so the last-known event
+  // survives instead of being replaced by a false "calendar is empty".
+  const paintUnreadable = () => {
+    if (cachedNext) {
+      paintEvent(
+        cachedNext,
+        `Couldn't reach the calendar — pulled ${agoLabel(cache?.ts)}`,
+      );
+    } else {
+      paintNote("Couldn't reach the calendar.");
+    }
+  };
+
+  fetchCalendarEvents()
+    .then((events) => {
+      if (!events) {
+        console.warn("[home] calendar page structure not recognized");
+        paintUnreadable();
+        return;
+      }
+      saveCalendarCache(events);
+      const next = nextUpcoming(events);
+      if (next) paintEvent(next, null);
+      else paintNote("No upcoming events on the calendar.");
+    })
+    .catch((err) => {
+      console.warn(`[home] calendar read failed: ${err?.message ?? err}`);
+      paintUnreadable();
+    });
+
   return h(
     "div",
     { class: "card event-card" },
@@ -106,26 +206,21 @@ function nextEventCard() {
       "div",
       { class: "event-title-row" },
       h("div", { class: "event-title" }, "🎲 Next event"),
-      h("span", { class: "pill" }, "6 days out"),
+      pill,
     ),
-    h(
-      "div",
-      { class: "event-lines" },
-      h("div", { class: "event-line" }, "Wednesday, Aug 5 · 6:00–9:00 pm"),
-      h(
-        "div",
-        { class: "event-line" },
-        "Cambridge Public Library, Lecture Hall",
-      ),
-    ),
-    h(
-      "div",
-      { class: "stat-row" },
-      stat("34", "RSVPs"),
-      stat("50", "Capacity"),
-      stat("412", "On the list"),
-    ),
+    dyn,
   );
+}
+
+// Cache-age marker for the last-known event: short, relative, honest.
+function agoLabel(ts) {
+  if (!Number.isFinite(ts)) return "earlier";
+  const mins = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs} h ago`;
+  return `${Math.round(hrs / 24)} d ago`;
 }
 
 function stat(value, label) {
@@ -1025,7 +1120,7 @@ function lumaScreen() {
     }
     preview = pRes.value;
     if (!preview.url) preview.url = url;
-    if (cRes.status === "fulfilled") {
+    if (cRes.status === "fulfilled" && cRes.value) {
       dedupe = findDuplicate(preview, cRes.value) ? "hit" : "miss";
     } else {
       dedupe = "unreadable"; // best-effort: say so and never block the add
