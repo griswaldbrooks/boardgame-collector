@@ -120,11 +120,13 @@ Row labels (shown to the user, not the pre-fill):
    - Two lines, 14px `#444`: `Wednesday, Aug 5 · 6:00–9:00 pm` / `Cambridge Public Library, Lecture Hall`.
    - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **34** RSVPs · **50** Capacity · **412** On the list.
 
-2. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
+2. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
 
-3. **Section label:** `👇 Do a thing`
+3. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
 
-4. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
+4. **Section label:** `👇 Do a thing`
+
+5. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
 
    | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
    |---|---|---|---|---|
@@ -133,9 +135,9 @@ Row labels (shown to the user, not the pre-fill):
    | 🗓️ | `#EDE6F7` / `#DCCFF0` | Add a community Luma event | Paste a link → our calendar | `#DCCFF0` / `#FDFCFF` |
    | 📇 | `#E3F4EA` / `#BFE3CE` | Save a contact | Venue, sponsor, or vendor — not the list | `#BFE3CE` / `#FBFEFC` |
 
-5. **Section label:** `✨ Recent activity`
+6. **Section label:** `✨ Recent activity`
 
-6. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
+7. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
    - `Today` — 4 people added after the Somerville meetup
    - `Mon` — Reminder sent — 412 members
    - `Jul 24` — Added "Chess in the Park" to the calendar
@@ -171,6 +173,8 @@ Row labels (shown to the user, not the pre-fill):
 **Capture mechanism (coordinator-initiated adds):** submitting queues the address(es) on-device in the durable offline queue — optimistic confirm, zero member action, no network. From Home, a non-empty queue shows a banner card leading to the **drain screen**: a copy-ready paste block of the queued addresses (FIFO) for Google Groups' owner Add members direct-add box, a deep link to `https://groups.google.com/g/bgn-wg/members`, and a per-address flag that moves entries into a second copy block for the invite box (an owner cannot direct-add an address without a Google account on `@googlegroups.com` groups, and the app cannot detect which path an address needs — it never guesses). Each batch is capped at 100 addresses and tracked against what was marked drained today, defending against the community-reported ~100/day owner-add throttle; the rest stays queued for the next batch. Marking the batch drained clears those queue entries, behind an on-screen confirm (the queue is the only copy of those addresses). The app copies text and opens a browser intent — it never sends or writes anything; the coordinator acting in Google's signed-in UI is the only write path (`docs/adr/0005-coordinator-initiated-adds.md`).
 
 ### 3. Scan sign-up sheet
+
+**Status: deliberately not built.** Open question 1 is answered no for v1 — batch paste is enough — so this screen stays unreachable (`docs/adr/0005-coordinator-initiated-adds.md`). The spec below is kept for whenever it is revisited.
 
 **Purpose:** clear the paper sheet from the door in one go.
 
@@ -298,7 +302,6 @@ Copy per outcome:
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
 - Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one: its loading, offline, and unreadable-link states ship with the flow (`docs/adr/0004-credential-free-luma-handoff.md`).
-- Offline queue for mailing-list adds — the highest-value case is standing in a venue with bad wifi.
 - Empty state for the recent-activity and agent-queue lists.
 
 **Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.

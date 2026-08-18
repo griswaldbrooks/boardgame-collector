@@ -41,13 +41,16 @@ handoff into Luma's own Add Event panel — the app never writes anywhere;
 calendar's slug is the `GROUP_CALENDAR` constant there (see
 `docs/adr/0004-credential-free-luma-handoff.md`). The agent flow renders as
 a stub; the batch dupe check uses the same empty roster stub. Screen 3
-(scan) is deliberately unbuilt — it hangs on README open question 1.
+(scan) is deliberately unbuilt: README open question 1 was answered no
+(captain decision, 2026-08-18 — batch paste is enough), so it stays
+unreachable.
 
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
-  the join-link + broadcast compose logic, and the Luma extraction/dedupe
+  the join-link + broadcast compose logic, the capture/drain queue
+  (batching, mark-drained, daily budget), and the Luma extraction/dedupe
   chain against fabricated fixtures — no browser needed).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /
