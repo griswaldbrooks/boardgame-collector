@@ -25,7 +25,8 @@ globalThis.window = {
 };
 
 // A cold start: fresh module state, same persisted queue.
-const relaunch = () => import(`../src/queue.js?run=${store.size}-${handed.length}`);
+const relaunch = () =>
+  import(`../src/queue.js?run=${store.size}-${handed.length}`);
 
 test("a handoff the OS refuses stays queued across a restart", async () => {
   const app = await relaunch();
@@ -34,7 +35,11 @@ test("a handoff the OS refuses stays queued across a restart", async () => {
   mailAppMissing = true; // airplane-mode stand-in: the handoff never lands
   await app.forward();
   assert.equal(handed.length, 0);
-  assert.equal(JSON.parse(store.get("bgn.adds.v1")).length, 1, "intent kept pending");
+  assert.equal(
+    JSON.parse(store.get("bgn.adds.v1")).length,
+    1,
+    "intent kept pending",
+  );
 
   // Kill and relaunch, then submit again with a mail app available.
   const restarted = await relaunch();
@@ -42,7 +47,11 @@ test("a handoff the OS refuses stays queued across a restart", async () => {
   await restarted.forward();
   assert.match(handed[0], /^mailto:alex%40example\.com\?/);
   assert.ok(handed[0].includes(encodeURIComponent(JOIN_LINK)));
-  assert.deepEqual(JSON.parse(store.get("bgn.adds.v1")), [], "drained once handed off");
+  assert.deepEqual(
+    JSON.parse(store.get("bgn.adds.v1")),
+    [],
+    "drained once handed off",
+  );
 });
 
 test("a batch add hands the coordinator's mail app one BCC'd message", async () => {
@@ -51,6 +60,8 @@ test("a batch add hands the coordinator's mail app one BCC'd message", async () 
   app.enqueue({ kind: "batch", emails: ["jo@example.com", "sam@example.com"] });
   await app.forward();
   assert.equal(handed.length, 1, "one message, not one per address");
-  assert.ok(handed[0].startsWith("mailto:?bcc=jo%40example.com,sam%40example.com"));
+  assert.ok(
+    handed[0].startsWith("mailto:?bcc=jo%40example.com,sam%40example.com"),
+  );
   assert.deepEqual(JSON.parse(store.get("bgn.adds.v1")), []);
 });

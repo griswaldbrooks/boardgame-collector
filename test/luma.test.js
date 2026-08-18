@@ -18,15 +18,27 @@ import {
 
 test("normalizeLumaUrl: lu.ma and luma.com spellings, query/fragment stripped", () => {
   assert.equal(normalizeLumaUrl("lu.ma/fake1234"), "https://luma.com/fake1234");
-  assert.equal(normalizeLumaUrl("https://lu.ma/fake1234"), "https://luma.com/fake1234");
-  assert.equal(normalizeLumaUrl("https://www.luma.com/fake1234"), "https://luma.com/fake1234");
-  assert.equal(normalizeLumaUrl("luma.com/fake1234"), "https://luma.com/fake1234");
+  assert.equal(
+    normalizeLumaUrl("https://lu.ma/fake1234"),
+    "https://luma.com/fake1234",
+  );
+  assert.equal(
+    normalizeLumaUrl("https://www.luma.com/fake1234"),
+    "https://luma.com/fake1234",
+  );
+  assert.equal(
+    normalizeLumaUrl("luma.com/fake1234"),
+    "https://luma.com/fake1234",
+  );
   assert.equal(
     normalizeLumaUrl("  https://lu.ma/fake1234?utm_source=chat#live  "),
     "https://luma.com/fake1234",
   );
   // Trailing path segments beyond the slug drop off.
-  assert.equal(normalizeLumaUrl("lu.ma/fake1234/extra"), "https://luma.com/fake1234");
+  assert.equal(
+    normalizeLumaUrl("lu.ma/fake1234/extra"),
+    "https://luma.com/fake1234",
+  );
 });
 
 test("normalizeLumaUrl: non-Luma input yields null", () => {
@@ -167,14 +179,26 @@ test("a malformed JSON-LD block does not sink a valid sibling", () => {
 /* ------------------------------ time rendering ------------------------------ */
 
 test("formatWhen renders offset ISO in the event's own wall time", () => {
-  assert.equal(formatWhen("2026-08-13T19:00:00.000-04:00"), "Thu Aug 13 · 7:00 pm");
-  assert.equal(formatWhen("2026-08-13T09:05:00.000-04:00"), "Thu Aug 13 · 9:05 am");
-  assert.equal(formatWhen("2026-08-13T00:30:00.000-04:00"), "Thu Aug 13 · 12:30 am");
+  assert.equal(
+    formatWhen("2026-08-13T19:00:00.000-04:00"),
+    "Thu Aug 13 · 7:00 pm",
+  );
+  assert.equal(
+    formatWhen("2026-08-13T09:05:00.000-04:00"),
+    "Thu Aug 13 · 9:05 am",
+  );
+  assert.equal(
+    formatWhen("2026-08-13T00:30:00.000-04:00"),
+    "Thu Aug 13 · 12:30 am",
+  );
 });
 
 test("formatWhen converts UTC + IANA zone to the event's wall time", () => {
   // 22:30 UTC on Sep 3 is 18:30 in New York (EDT, UTC-4).
-  assert.equal(formatWhen("2026-09-03T22:30:00.000Z", "America/New_York"), "Thu Sep 3 · 6:30 pm");
+  assert.equal(
+    formatWhen("2026-09-03T22:30:00.000Z", "America/New_York"),
+    "Thu Sep 3 · 6:30 pm",
+  );
 });
 
 test("formatWhen degrades on junk input", () => {
@@ -200,7 +224,11 @@ const CALENDAR_PAGE = `<html><body>
 test("parseCalendarEvents pulls ids + slugs from the embedded upcoming list", () => {
   const events = parseCalendarEvents(CALENDAR_PAGE);
   assert.equal(events.length, 2);
-  assert.deepEqual(events[0], { eventId: "evt-FakeFakeFakeFak", slug: "fake1234", name: "Fixture Game Night" });
+  assert.deepEqual(events[0], {
+    eventId: "evt-FakeFakeFakeFak",
+    slug: "fake1234",
+    name: "Fixture Game Night",
+  });
   assert.equal(events[1].eventId, "evt-TriviaTriviaTri");
 });
 
@@ -220,8 +248,17 @@ test("findDuplicate matches by evt id first, then by slug, else null", () => {
   const byId = findDuplicate(parseEventPage(FULL_PAGE), events);
   assert.equal(byId.name, "Fixture Game Night");
   // Same slug but no id extracted (OG-only preview) still matches.
-  const bySlug = findDuplicate({ url: "https://luma.com/fake1234", eventId: null }, events);
+  const bySlug = findDuplicate(
+    { url: "https://luma.com/fake1234", eventId: null },
+    events,
+  );
   assert.equal(bySlug.eventId, "evt-FakeFakeFakeFak");
-  assert.equal(findDuplicate({ url: "https://luma.com/unlisted1", eventId: "evt-Nope" }, events), null);
+  assert.equal(
+    findDuplicate(
+      { url: "https://luma.com/unlisted1", eventId: "evt-Nope" },
+      events,
+    ),
+    null,
+  );
   assert.equal(findDuplicate({ url: null, eventId: null }, events), null);
 });

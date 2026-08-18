@@ -3,7 +3,13 @@
 // plus the agent screen stub (Discord agent not connected yet).
 
 import { h, header, sectionLabel, cta, agentRow, chipRow } from "./ui.js";
-import { state, resetAdd, resetBroadcast, resetContact, resetLuma } from "./state.js";
+import {
+  state,
+  resetAdd,
+  resetBroadcast,
+  resetContact,
+  resetLuma,
+} from "./state.js";
 import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
 import { enqueue, forward } from "./queue.js";
 import {
@@ -24,7 +30,8 @@ const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 // The agent screen is a stub in this build, but the pre-fill still arrives.
 const HANDOFF_TASK = {
   add: "Add everyone who reacted 🎲 to the last #announcements post to the mailing list.",
-  batch: "Take the emails I pasted, drop anyone already on the list, and invite the rest.",
+  batch:
+    "Take the emails I pasted, drop anyone already on the list, and invite the rest.",
   message: "Finish this reminder draft and send it to the list Monday at 9am.",
   luma: "Watch Luma for Boston tabletop events this week and add anything relevant to our calendar.",
 };
@@ -50,10 +57,34 @@ export function render(screen, opts) {
 /* ------------------------------ 1. Home ------------------------------ */
 
 const ACTIONS = [
-  { icon: "📬", cls: "action-mail", title: "Add to mailing list", sub: "Scan, paste, or type — batches too", screen: "add" },
-  { icon: "📣", cls: "action-message", title: "Message the list", sub: "Announce or remind, from a template", screen: "broadcast" },
-  { icon: "🗓️", cls: "action-luma", title: "Add a community Luma event", sub: "Paste a link → our calendar", screen: "luma" },
-  { icon: "📇", cls: "action-contact", title: "Save a contact", sub: "Venue, sponsor, or vendor — not the list", screen: "contact" },
+  {
+    icon: "📬",
+    cls: "action-mail",
+    title: "Add to mailing list",
+    sub: "Scan, paste, or type — batches too",
+    screen: "add",
+  },
+  {
+    icon: "📣",
+    cls: "action-message",
+    title: "Message the list",
+    sub: "Announce or remind, from a template",
+    screen: "broadcast",
+  },
+  {
+    icon: "🗓️",
+    cls: "action-luma",
+    title: "Add a community Luma event",
+    sub: "Paste a link → our calendar",
+    screen: "luma",
+  },
+  {
+    icon: "📇",
+    cls: "action-contact",
+    title: "Save a contact",
+    sub: "Venue, sponsor, or vendor — not the list",
+    screen: "contact",
+  },
 ];
 
 function nextEventCard() {
@@ -72,7 +103,11 @@ function nextEventCard() {
       "div",
       { class: "event-lines" },
       h("div", { class: "event-line" }, "Wednesday, Aug 5 · 6:00–9:00 pm"),
-      h("div", { class: "event-line" }, "Cambridge Public Library, Lecture Hall"),
+      h(
+        "div",
+        { class: "event-line" },
+        "Cambridge Public Library, Lecture Hall",
+      ),
     ),
     h(
       "div",
@@ -96,7 +131,11 @@ function stat(value, label) {
 function actionCard(a) {
   return h(
     "button",
-    { class: `action-card ${a.cls}`, type: "button", onclick: () => go(a.screen) },
+    {
+      class: `action-card ${a.cls}`,
+      type: "button",
+      onclick: () => go(a.screen),
+    },
     h("span", { class: "tile" }, a.icon),
     h(
       "span",
@@ -111,7 +150,15 @@ function actionCard(a) {
 function recentCard() {
   const rows = listActivity();
   if (!rows.length) {
-    return h("div", { class: "card" }, h("div", { class: "empty" }, "Nothing yet — invites you send show up here."));
+    return h(
+      "div",
+      { class: "card" },
+      h(
+        "div",
+        { class: "empty" },
+        "Nothing yet — invites you send show up here.",
+      ),
+    );
   }
   return h(
     "div",
@@ -144,18 +191,38 @@ function homeScreen() {
 
 /* ------------------------- 2. Add to mailing list ------------------------- */
 
-function fieldGroup(labelText, control, { optional = false, chips = false } = {}) {
+function fieldGroup(
+  labelText,
+  control,
+  { optional = false, chips = false } = {},
+) {
   const label = optional
-    ? h("div", { class: "field-label" }, `${labelText} `, h("span", { class: "opt" }, "optional"))
+    ? h(
+        "div",
+        { class: "field-label" },
+        `${labelText} `,
+        h("span", { class: "opt" }, "optional"),
+      )
     : h("div", { class: "field-label" }, labelText);
-  if (control.matches?.("input, textarea, select")) control.setAttribute("aria-label", labelText);
-  return h("div", { class: chips ? "field field-chips" : "field" }, label, control);
+  if (control.matches?.("input, textarea, select"))
+    control.setAttribute("aria-label", labelText);
+  return h(
+    "div",
+    { class: chips ? "field field-chips" : "field" },
+    label,
+    control,
+  );
 }
 
 function submitOne() {
   const email = state.email.trim();
   const name = state.name.trim();
-  enqueue({ kind: "one", email, name: name || undefined, source: state.source });
+  enqueue({
+    kind: "one",
+    email,
+    name: name || undefined,
+    source: state.source,
+  });
   addActivity(`Sent join link to ${name || email}`);
   go("done", { done: { kind: "one", who: name || email } });
   forward(); // hand the join-link message to the coordinator's apps
@@ -206,9 +273,13 @@ function oneMode() {
       fieldGroup("Name", nameInput, { optional: true }),
       fieldGroup(
         "Met them at",
-        chipRow(SOURCES, (o) => o === state.source, (o) => {
-          state.source = o;
-        }),
+        chipRow(
+          SOURCES,
+          (o) => o === state.source,
+          (o) => {
+            state.source = o;
+          },
+        ),
         { chips: true },
       ),
     ),
@@ -225,8 +296,9 @@ function oneMode() {
       ),
     ),
     submit.btn,
-    agentRow("Have the agent pull everyone who reacted 🎲 in Discord onto the list", () =>
-      go("agent", { task: HANDOFF_TASK.add }),
+    agentRow(
+      "Have the agent pull everyone who reacted 🎲 in Discord onto the list",
+      () => go("agent", { task: HANDOFF_TASK.add }),
     ),
   );
 }
@@ -241,7 +313,10 @@ const BATCH_LABEL = "Paste emails — commas, spaces, or one per line";
 function batchMode() {
   const emails = () => parseBatch(state.batch);
   const submit = cta(
-    () => (emails().length ? `Send join link to ${emails().length} people` : "Paste some emails"),
+    () =>
+      emails().length
+        ? `Send join link to ${emails().length} people`
+        : "Paste some emails",
     () => emails().length > 0,
     submitBatch,
   );
@@ -250,7 +325,9 @@ function batchMode() {
   function refresh() {
     const list = emails();
     const dupes = list.filter((e) => ROSTER.includes(e)).length;
-    countLeft.textContent = list.length ? `${list.length} valid addresses` : "Nothing pasted yet";
+    countLeft.textContent = list.length
+      ? `${list.length} valid addresses`
+      : "Nothing pasted yet";
     countRight.textContent = dupes ? `${dupes} already on the list` : "";
     submit.update();
   }
@@ -284,8 +361,16 @@ function batchMode() {
 
 function addScreen() {
   const body = h("div", { class: "stack" });
-  const tabOne = h("button", { class: "tab", type: "button", onclick: () => setMode("one") }, "One person");
-  const tabBatch = h("button", { class: "tab", type: "button", onclick: () => setMode("batch") }, "Paste a batch");
+  const tabOne = h(
+    "button",
+    { class: "tab", type: "button", onclick: () => setMode("one") },
+    "One person",
+  );
+  const tabBatch = h(
+    "button",
+    { class: "tab", type: "button", onclick: () => setMode("batch") },
+    "Paste a batch",
+  );
   function setMode(mode) {
     state.mode = mode;
     tabOne.classList.toggle("tab-on", mode === "one");
@@ -293,15 +378,33 @@ function addScreen() {
     body.replaceChildren(mode === "one" ? oneMode() : batchMode());
   }
   setMode(state.mode);
-  return shell("Mailing list", "Add members", true, h("div", { class: "tabs" }, tabOne, tabBatch), body);
+  return shell(
+    "Mailing list",
+    "Add members",
+    true,
+    h("div", { class: "tabs" }, tabOne, tabBatch),
+    body,
+  );
 }
 
 /* --------------------------- 4. Message the list --------------------------- */
 
 const TEMPLATES = [
-  { id: "reminder", title: "Event reminder", desc: "Two days out — time, place, what to bring" },
-  { id: "announce", title: "New event announced", desc: "Date, venue, RSVP link" },
-  { id: "recap", title: "Post-night recap", desc: "Games played, photos, next date" },
+  {
+    id: "reminder",
+    title: "Event reminder",
+    desc: "Two days out — time, place, what to bring",
+  },
+  {
+    id: "announce",
+    title: "New event announced",
+    desc: "Date, venue, RSVP link",
+  },
+  {
+    id: "recap",
+    title: "Post-night recap",
+    desc: "Games played, photos, next date",
+  },
 ];
 
 // Preview copy per spec §4, swapped with the selection. Editable before
@@ -375,7 +478,11 @@ function broadcastScreen() {
     sendBtn,
     h(
       "button",
-      { class: "btn-secondary", type: "button", onclick: () => setConfirming(false) },
+      {
+        class: "btn-secondary",
+        type: "button",
+        onclick: () => setConfirming(false),
+      },
       "Keep editing",
     ),
   );
@@ -426,7 +533,9 @@ function broadcastScreen() {
     ),
   );
   function refresh() {
-    tplButtons.forEach((b, i) => b.classList.toggle("tpl-on", TEMPLATES[i].id === state.tpl));
+    tplButtons.forEach((b, i) =>
+      b.classList.toggle("tpl-on", TEMPLATES[i].id === state.tpl),
+    );
     submit.update();
   }
   refresh();
@@ -468,11 +577,14 @@ const LUMA_ERROR = {
   // A calendar or user page reads fine and even serves an og:title, so say
   // what's actually wrong instead of blaming the connection.
   notEvent: "That link isn't a Luma event page — paste an event link.",
-  generic: "Couldn't pull a preview — check the link. Private events can't be added to a community calendar.",
+  generic:
+    "Couldn't pull a preview — check the link. Private events can't be added to a community calendar.",
 };
 
 function lumaPreviewCard(p) {
-  const meta = [formatWhen(p.startAt, p.timezone), p.venue].filter(Boolean).join(" · ");
+  const meta = [formatWhen(p.startAt, p.timezone), p.venue]
+    .filter(Boolean)
+    .join(" · ");
   return h(
     "div",
     { class: "card" },
@@ -484,7 +596,11 @@ function lumaPreviewCard(p) {
           "div",
           { class: "luma-tags" },
           p.tags.map((t, i) =>
-            h("span", { class: i === 0 ? "tag-pill tag-pill-accent" : "tag-pill" }, t),
+            h(
+              "span",
+              { class: i === 0 ? "tag-pill tag-pill-accent" : "tag-pill" },
+              t,
+            ),
           ),
         )
       : null,
@@ -520,7 +636,14 @@ function lumaScreen() {
   function repaint() {
     const kids = [];
     if (phase === "loading") {
-      kids.push(h("div", { class: "card luma-note" }, h("span", { class: "spinner" }), "Pulling preview…"));
+      kids.push(
+        h(
+          "div",
+          { class: "card luma-note" },
+          h("span", { class: "spinner" }),
+          "Pulling preview…",
+        ),
+      );
     } else if (phase === "error") {
       kids.push(
         h(
@@ -540,14 +663,26 @@ function lumaScreen() {
             h(
               "div",
               { class: "luma-already-copy" },
-              h("div", { class: "luma-already-title" }, "Already on our calendar"),
-              h("div", { class: "luma-already-sub" }, `${lumaTitle(preview)} is listed with the upcoming events.`),
+              h(
+                "div",
+                { class: "luma-already-title" },
+                "Already on our calendar",
+              ),
+              h(
+                "div",
+                { class: "luma-already-sub" },
+                `${lumaTitle(preview)} is listed with the upcoming events.`,
+              ),
             ),
           ),
         );
       } else if (dedupe === "unreadable") {
         kids.push(
-          h("div", { class: "luma-check-note" }, "Couldn't check our calendar — you can still add it there."),
+          h(
+            "div",
+            { class: "luma-check-note" },
+            "Couldn't check our calendar — you can still add it there.",
+          ),
         );
       }
     }
@@ -559,12 +694,19 @@ function lumaScreen() {
     const my = seq;
     dedupe = "checking";
     repaint();
-    const [pRes, cRes] = await Promise.allSettled([fetchEventPreview(url), fetchCalendarEvents()]);
+    const [pRes, cRes] = await Promise.allSettled([
+      fetchEventPreview(url),
+      fetchCalendarEvents(),
+    ]);
     if (my !== seq) return; // a newer input superseded this fetch
     if (pRes.status === "rejected" || !pRes.value.isEvent) {
       // network failure, or a readable page that simply isn't an event
       errorKind =
-        pRes.status === "rejected" ? (navigator.onLine ? "generic" : "offline") : "notEvent";
+        pRes.status === "rejected"
+          ? navigator.onLine
+            ? "generic"
+            : "offline"
+          : "notEvent";
       phase = "error";
       repaint();
       return;
@@ -651,8 +793,9 @@ function lumaScreen() {
     dyn,
     submit.btn,
     notice,
-    agentRow("Have the agent watch Luma and add community events all week", () =>
-      go("agent", { task: HANDOFF_TASK.luma }),
+    agentRow(
+      "Have the agent watch Luma and add community events all week",
+      () => go("agent", { task: HANDOFF_TASK.luma }),
     ),
   );
 }
@@ -680,7 +823,11 @@ function savedCard() {
     return h(
       "div",
       { class: "card" },
-      h("div", { class: "empty" }, "Nothing yet — contacts you save show up here."),
+      h(
+        "div",
+        { class: "empty" },
+        "Nothing yet — contacts you save show up here.",
+      ),
     );
   }
   return h(
@@ -767,16 +914,21 @@ function contactScreen() {
       ),
       fieldGroup(
         "Who is this?",
-        chipRow(CTAGS, (o) => o === state.cTag, (o) => {
-          state.cTag = o;
-        }),
+        chipRow(
+          CTAGS,
+          (o) => o === state.cTag,
+          (o) => {
+            state.cTag = o;
+          },
+        ),
         { chips: true },
       ),
       fieldGroup(
         "Notes 📝",
         h("textarea", {
           class: "input notes-area",
-          placeholder: "Books the lecture hall. Needs 3 weeks notice, no food past 8pm.",
+          placeholder:
+            "Books the lecture hall. Needs 3 weeks notice, no food past 8pm.",
           value: state.cNotes,
           oninput: (e) => {
             state.cNotes = e.target.value;
@@ -785,10 +937,12 @@ function contactScreen() {
       ),
     ),
     submit.btn,
-    agentRow("Have the agent email them about hosting a night in September", () =>
-      go("agent", {
-        task: `Email ${state.cName.trim() || "this contact"} about hosting a night in September.`,
-      }),
+    agentRow(
+      "Have the agent email them about hosting a night in September",
+      () =>
+        go("agent", {
+          task: `Email ${state.cName.trim() || "this contact"} about hosting a night in September.`,
+        }),
     ),
     sectionLabel("Saved contacts"),
     savedCard(),
@@ -798,12 +952,18 @@ function contactScreen() {
 /* --------------------------- 8. Done (shared) --------------------------- */
 
 const DONE_COPY = {
-  one: (d) => ["Invite sent", `${d.who} will get your message with the join link.`],
+  one: (d) => [
+    "Invite sent",
+    `${d.who} will get your message with the join link.`,
+  ],
   batch: (d) => [
     `Invited ${d.n} people`,
     "Your message with the join link is on the way. Anyone already on the list was skipped.",
   ],
-  contact: (d) => ["Contact saved 📇", `${d.who} is in the coordinator address book. No emails sent.`],
+  contact: (d) => [
+    "Contact saved 📇",
+    `${d.who} is in the coordinator address book. No emails sent.`,
+  ],
   // Message copy follows the ADR 0002 honesty pattern: the app hands the
   // composed mail to the coordinator's mail app, so the body says where the
   // message is rather than claiming a delivery the app can't see.
@@ -841,8 +1001,16 @@ function doneScreen(opts) {
         { class: "done-actions" },
         // One pop returns to the task screen; entering it clears the fields
         // (spec "Field clearing"), so this reads as a fresh form.
-        h("button", { class: "cta", type: "button", onclick: back }, "Add another"),
-        h("button", { class: "btn-secondary", type: "button", onclick: homeFromDone }, "Back to home"),
+        h(
+          "button",
+          { class: "cta", type: "button", onclick: back },
+          "Add another",
+        ),
+        h(
+          "button",
+          { class: "btn-secondary", type: "button", onclick: homeFromDone },
+          "Back to home",
+        ),
       ),
     ),
   );
@@ -862,7 +1030,11 @@ function agentScreen(opts) {
       h(
         "div",
         { class: "agent-banner-copy" },
-        h("div", { class: "agent-banner-title" }, "Discord agent not connected"),
+        h(
+          "div",
+          { class: "agent-banner-title" },
+          "Discord agent not connected",
+        ),
         h(
           "div",
           { class: "agent-banner-sub" },

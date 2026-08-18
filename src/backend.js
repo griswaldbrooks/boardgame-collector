@@ -61,7 +61,8 @@ export const calendarUrl = () => `https://luma.com/${GROUP_CALENDAR.slug}`;
 
 // The admin "Add Existing Luma Event" panel the group's documented flow uses;
 // the coordinator is signed in there, so the handoff lands two taps from done.
-export const calendarManageUrl = () => `https://luma.com/calendar/manage/${GROUP_CALENDAR.id}`;
+export const calendarManageUrl = () =>
+  `https://luma.com/calendar/manage/${GROUP_CALENDAR.id}`;
 
 // A browser fetch of luma.com dies on CORS (no Access-Control-Allow-Origin),
 // so inside Tauri the request goes through the Rust-side http plugin
@@ -75,8 +76,14 @@ export async function fetchLumaPage(url) {
   try {
     // Race guards the case where the fetch impl ignores the abort signal.
     const res = await Promise.race([
-      f(url, { redirect: "follow", signal: ctrl.signal, headers: { accept: "text/html" } }),
-      new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), FETCH_TIMEOUT_MS + 500)),
+      f(url, {
+        redirect: "follow",
+        signal: ctrl.signal,
+        headers: { accept: "text/html" },
+      }),
+      new Promise((_, rej) =>
+        setTimeout(() => rej(new Error("timeout")), FETCH_TIMEOUT_MS + 500),
+      ),
     ]);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.text();

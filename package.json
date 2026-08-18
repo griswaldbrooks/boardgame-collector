@@ -8,12 +8,20 @@
     "dev": "vite",
     "build": "vite build",
     "test": "node --test",
+    "lint": "eslint src test",
+    "lint:fix": "eslint --fix src test",
+    "format": "prettier --write src test",
+    "format:check": "prettier --check src test",
     "tauri": "tauri",
     "android:dev": "tauri android dev",
     "android:build": "tauri android build --apk"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2",
+    "eslint": "^10.8.1",
+    "globals": "^17.11.0",
+    "prettier": "^3.9.6",
     "vite": "^7"
   },
   "dependencies": {

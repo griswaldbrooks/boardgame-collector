@@ -42,6 +42,13 @@ a stub; the batch dupe check uses the same empty roster stub. Screen 3
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
   the join-link + broadcast compose logic, and the Luma extraction/dedupe
   chain against fabricated fixtures — no browser needed).
+- CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
+  lint/format/build/test and host-target `cargo fmt --check` /
+  `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
+  libs first). Lint/format is eslint + prettier over `src/` and `test/` only
+  (`npm run lint`, `npm run format:check`); the generated `support.js` and
+  the prototype `ios-frame.jsx` are excluded. The APK build is local-only by
+  design (needs SDK/NDK; see the workflow's comment).
 - Emulator: AVDs `fm-contacts` and `skydash-smoke` (`emulator -list-avds`).
   Several agents may verify concurrently — boot your own instance on a free
   port (`emulator -avd <name> -port <unique> -no-window -no-audio

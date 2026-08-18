@@ -17,7 +17,10 @@ function load() {
 
 // Newest first, matching how the saved list renders.
 export function saveContact(c) {
-  localStorage.setItem(KEY, JSON.stringify([{ ...c, ts: Date.now() }, ...load()]));
+  localStorage.setItem(
+    KEY,
+    JSON.stringify([{ ...c, ts: Date.now() }, ...load()]),
+  );
 }
 
 export function listContacts() {

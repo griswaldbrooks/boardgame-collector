@@ -493,7 +493,9 @@ textarea.input {
   min-height: 44px;
   width: 100%;
   text-align: left;
-  transition: background 120ms ease, border-color 120ms ease;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
 .tile {
