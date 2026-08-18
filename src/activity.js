@@ -25,7 +25,8 @@ export function listActivity() {
 export function dayLabel(ts) {
   const d = new Date(ts);
   const now = new Date();
-  const startOf = (x) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const startOf = (x) =>
+    new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
   const daysAgo = Math.round((startOf(now) - startOf(d)) / 864e5);
   if (daysAgo <= 0) return "Today";
   if (daysAgo < 7) return d.toLocaleDateString("en-US", { weekday: "short" });

@@ -17,5 +17,7 @@ export const parseBatch = (text) => [
 // line deleted) sends with whatever is there — empty subject is fine.
 export function splitDraft(draft) {
   const m = draft.match(/^Subject:[ \t]*(.*)\r?\n+([\s\S]*)$/);
-  return m ? { subject: m[1].trim(), body: m[2] } : { subject: "", body: draft };
+  return m
+    ? { subject: m[1].trim(), body: m[2] }
+    : { subject: "", body: draft };
 }

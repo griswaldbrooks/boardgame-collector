@@ -31,14 +31,18 @@ test("batch parse: split on /[\\s,;]+/, keep tokens with '@' past position 0", (
   // Non-email tokens drop out; newlines are just whitespace.
   assert.deepEqual(parseBatch("hello there\na@example.com"), ["a@example.com"]);
   // '@' at position 0 means no local part — dropped.
-  assert.deepEqual(parseBatch("@nolocalpart.com ok@example.com"), ["ok@example.com"]);
+  assert.deepEqual(parseBatch("@nolocalpart.com ok@example.com"), [
+    "ok@example.com",
+  ]);
   assert.deepEqual(parseBatch("  a@example.com , ;; "), ["a@example.com"]);
   // The parse rule does not check the domain; that is the backend's job.
   assert.deepEqual(parseBatch("a@b"), ["a@b"]);
 });
 
 test("batch parse dedupes, first occurrence wins", () => {
-  assert.deepEqual(parseBatch("a@example.com a@example.com"), ["a@example.com"]);
+  assert.deepEqual(parseBatch("a@example.com a@example.com"), [
+    "a@example.com",
+  ]);
   assert.deepEqual(
     parseBatch("b@example.com, a@example.com; b@example.com\na@example.com"),
     ["b@example.com", "a@example.com"],
@@ -65,20 +69,36 @@ test("batch mailto puts every pasted address in BCC", () => {
 });
 
 test("splitDraft pulls the Subject line off an edited preview", () => {
-  assert.deepEqual(splitDraft("Subject: Wednesday at the Cambridge Library\n\nHi all — body."), {
-    subject: "Wednesday at the Cambridge Library",
-    body: "Hi all — body.",
-  });
+  assert.deepEqual(
+    splitDraft("Subject: Wednesday at the Cambridge Library\n\nHi all — body."),
+    {
+      subject: "Wednesday at the Cambridge Library",
+      body: "Hi all — body.",
+    },
+  );
   // Blank lines between subject and body don't leak into the body.
-  assert.deepEqual(splitDraft("Subject: S\n\n\nB"), { subject: "S", body: "B" });
+  assert.deepEqual(splitDraft("Subject: S\n\n\nB"), {
+    subject: "S",
+    body: "B",
+  });
   // Edited past the template shape: no subject line means empty subject.
-  assert.deepEqual(splitDraft("Just a body now"), { subject: "", body: "Just a body now" });
+  assert.deepEqual(splitDraft("Just a body now"), {
+    subject: "",
+    body: "Just a body now",
+  });
   assert.deepEqual(splitDraft(""), { subject: "", body: "" });
 });
 
 test("broadcast mailto is addressed to the group with the edited content", () => {
-  const uri = broadcastMailtoUri("Last night was a good one", "Thanks to the 38 of you.");
+  const uri = broadcastMailtoUri(
+    "Last night was a good one",
+    "Thanks to the 38 of you.",
+  );
   assert.ok(uri.startsWith(`mailto:${LIST_MAIL}?`));
-  assert.ok(uri.includes(`subject=${encodeURIComponent("Last night was a good one")}`));
-  assert.ok(uri.includes(`body=${encodeURIComponent("Thanks to the 38 of you.")}`));
+  assert.ok(
+    uri.includes(`subject=${encodeURIComponent("Last night was a good one")}`),
+  );
+  assert.ok(
+    uri.includes(`body=${encodeURIComponent("Thanks to the 38 of you.")}`),
+  );
 });

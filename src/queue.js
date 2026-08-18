@@ -42,7 +42,9 @@ export async function forward() {
     } catch (err) {
       // Cancelled share or no share target: keep the intent for the next
       // forward (store-and-forward).
-      console.warn(`[queue] handoff incomplete, kept pending: ${err?.message ?? err}`);
+      console.warn(
+        `[queue] handoff incomplete, kept pending: ${err?.message ?? err}`,
+      );
     }
   } finally {
     forwarding = false;

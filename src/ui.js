@@ -29,7 +29,11 @@ export function header(kicker, title, onCancel) {
       h("h1", { class: "title" }, title),
     ),
     onCancel
-      ? h("button", { class: "header-action", type: "button", onclick: onCancel }, "Cancel")
+      ? h(
+          "button",
+          { class: "header-action", type: "button", onclick: onCancel },
+          "Cancel",
+        )
       : null,
   );
 }
@@ -83,7 +87,9 @@ export function chipRow(options, isSelected, onpick) {
     ),
   );
   function refresh() {
-    buttons.forEach((b, i) => b.classList.toggle("chip-on", isSelected(options[i])));
+    buttons.forEach((b, i) =>
+      b.classList.toggle("chip-on", isSelected(options[i])),
+    );
   }
   refresh();
   return h("div", { class: "chip-row" }, buttons);
