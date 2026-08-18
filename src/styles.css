@@ -481,6 +481,23 @@ textarea.input {
   color: var(--text-faint);
 }
 
+/* Next-event card's dynamic body: event lines + stats + the state note
+   (loading / cached marker / offline / empty). */
+.event-body {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+}
+
+.event-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--text-tertiary);
+}
+
 /* Home action cards — each tinted per the spec table */
 .action-card {
   background: var(--surface);

@@ -1,7 +1,9 @@
 // Flow 3 (Add a community Luma event): URL normalization, event-page
-// extraction, and calendar dedupe matching. Pure string in / object out —
-// the network read lives at the backend.js seam, so all of this is testable
-// against fixtures (docs/adr/0004-credential-free-luma-handoff.md).
+// extraction, and calendar dedupe matching. The same calendar-page parse
+// also feeds Home's next-event card (date/time, venue, RSVP count, days
+// out). Pure string in / object out — the network read lives at the
+// backend.js seam, so all of this is testable against fixtures
+// (docs/adr/0004-credential-free-luma-handoff.md).
 //
 // Extraction chain, most stable first: schema.org JSON-LD (Luma serves it
 // for search rich-results), OpenGraph tags, then the embedded __NEXT_DATA__
@@ -128,16 +130,20 @@ export function parseEventPage(html) {
   };
 }
 
-// Wall time of the event in its own timezone, rendered spec-style:
-// "Thu Aug 13 · 7:00 pm". Offset-bearing ISO (JSON-LD) carries the wall
-// time in the string itself; UTC + IANA zone (page state) needs a zoned
-// format. Returns null when there is nothing to render.
-export function formatWhen(startAt, timezone) {
-  const m = String(startAt ?? "").match(
+// Wall-clock parts of an instant in the event's own timezone — the shared
+// core of formatWhen/formatWhenRange. Offset-bearing ISO (JSON-LD) carries
+// the wall time in the string itself; UTC + IANA zone (page state) needs a
+// zoned format. `ymd` is the wall calendar date, so a range can tell
+// same-day from overnight. Returns null when there is nothing to parse.
+function wallParts(iso, timezone, longWeekday = false) {
+  const m = String(iso ?? "").match(
     /^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::\d{2})?(?:\.\d+)?(Z|[+-]\d{2}:?\d{2})?/,
   );
   if (!m) return null;
   let parts;
+  let ymd = `${m[1]}-${m[2]}-${m[3]}`;
+  let offsetMinutes = null;
+  let tz;
   if (m[6] && m[6] !== "Z") {
     // Wall time is right there in the string — no conversion needed.
     parts = {
@@ -147,11 +153,14 @@ export function formatWhen(startAt, timezone) {
       hour: +m[4],
       minute: m[5],
     };
+    const o = m[6].match(/^([+-])(\d{2}):?(\d{2})$/);
+    offsetMinutes = o ? (o[1] === "-" ? -1 : 1) * (+o[2] * 60 + +o[3]) : null;
   } else {
+    tz = m[6] === "Z" && timezone ? timezone : undefined;
     try {
       const fmt = new Intl.DateTimeFormat("en-US", {
-        timeZone: m[6] === "Z" && timezone ? timezone : undefined,
-        weekday: "short",
+        timeZone: tz,
+        weekday: longWeekday ? "long" : "short",
         month: "short",
         day: "numeric",
         hour: "numeric",
@@ -159,52 +168,183 @@ export function formatWhen(startAt, timezone) {
         hour12: true,
       });
       parts = Object.fromEntries(
-        fmt.formatToParts(new Date(startAt)).map((p) => [p.type, p.value]),
+        fmt.formatToParts(new Date(iso)).map((p) => [p.type, p.value]),
       );
+      // The wall date, not the UTC date — a midnight-UTC start can land on
+      // the previous day in the event's own zone.
+      ymd = new Intl.DateTimeFormat("en-CA", {
+        timeZone: tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(iso));
     } catch {
       return null;
     }
   }
   if (parts.weekday == null) {
     const d = new Date(`${m[1]}-${m[2]}-${m[3]}T12:00:00`); // weekday/month names only
-    parts.weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+    parts.weekday = d.toLocaleDateString("en-US", {
+      weekday: longWeekday ? "long" : "short",
+    });
     parts.month = d.toLocaleDateString("en-US", { month: "short" });
   }
   const hour12 = parts.hour % 12 || 12;
   const minute = String(parts.minute).padStart(2, "0");
-  const ampm = parts.dayPeriod ?? (parts.hour < 12 ? "am" : "pm");
-  return `${parts.weekday} ${parts.month} ${parts.day} · ${hour12}:${minute} ${String(ampm).toLowerCase()}`;
+  const ampm = String(
+    parts.dayPeriod ?? (parts.hour < 12 ? "am" : "pm"),
+  ).toLowerCase();
+  return {
+    weekday: parts.weekday,
+    month: parts.month,
+    day: parts.day,
+    clock: `${hour12}:${minute}`,
+    ampm,
+    ymd,
+    offsetMinutes,
+    tz,
+  };
+}
+
+// Wall time of the event in its own timezone, rendered spec-style:
+// "Thu Aug 13 · 7:00 pm". Returns null when there is nothing to render.
+export function formatWhen(startAt, timezone) {
+  const p = wallParts(startAt, timezone);
+  return p ? `${p.weekday} ${p.month} ${p.day} · ${p.clock} ${p.ampm}` : null;
+}
+
+// Home's next-event card line (spec §1): "Wednesday, Aug 5 · 6:00–9:00 pm".
+// Same-day ranges render start–end with one am/pm; an overnight or missing
+// end drops the end time rather than putting it on the wrong date.
+export function formatWhenRange(startAt, endAt, timezone) {
+  const s = wallParts(startAt, timezone, true);
+  if (!s) return null;
+  const head = `${s.weekday}, ${s.month} ${s.day}`;
+  const e = endAt == null ? null : wallParts(endAt, timezone, true);
+  if (e && e.ymd === s.ymd) {
+    const range =
+      s.ampm === e.ampm
+        ? `${s.clock}–${e.clock} ${e.ampm}`
+        : `${s.clock} ${s.ampm}–${e.clock} ${e.ampm}`;
+    return `${head} · ${range}`;
+  }
+  return `${head} · ${s.clock} ${s.ampm}`;
 }
 
 // Upcoming events embedded in the group calendar's public page — the
-// credential-free dedupe source. Best-effort by construction: anything
-// unparseable yields [], which the screen renders as "couldn't check".
+// credential-free dedupe source, and the read Home's next-event card
+// renders from. Empty and unreadable are distinct: a recognized list that
+// happens to be empty yields [], while a page whose structure we no longer
+// recognize yields null, which the screens render as "couldn't check" /
+// "couldn't reach" rather than asserting the calendar is empty.
 export function parseCalendarEvents(html) {
   const data = nextData(html);
-  if (!data) return [];
+  if (!data) return null;
   // featured_items sits at initialData.data on the calendars probed; fall
   // back to a shallow scan so a re-nested key degrades instead of breaking.
   const looksRight = (xs) =>
     Array.isArray(xs) && xs.some((it) => it?.event?.api_id || it?.event?.url);
+  // Only a list we recognize, or an empty one, counts as read: a populated
+  // list whose items we no longer recognize means the markup moved, and
+  // must read as unreadable rather than as an empty calendar.
+  const isEmptyList = (xs) => Array.isArray(xs) && !xs.length;
   const items = looksRight(data.featured_items)
     ? data.featured_items
-    : (Object.values(data).find((v) => Array.isArray(v) && looksRight(v)) ??
-      []);
+    : (Object.values(data).find(looksRight) ??
+      (isEmptyList(data.featured_items) ? data.featured_items : null));
+  if (!items) return null;
   return items
     .map((it) => {
       // event.url is a slug for Luma events, a full URL for external-platform
       // entries (which then dedupe by id only).
       const u = it?.event?.url ?? it?.url ?? null;
+      const ev = it?.event;
+      // Same venue rule as parseEventPage, minus the JSON-LD fallback —
+      // calendar entries have no JSON-LD of their own.
+      const geo = ev?.geo_address_info;
+      const guests = it?.guest_count ?? ev?.guest_count;
       return {
-        eventId: typeof it?.event?.api_id === "string" ? it.event.api_id : null,
+        eventId: typeof ev?.api_id === "string" ? ev.api_id : null,
         slug:
           u && /^https?:\/\//i.test(u)
             ? slugOf(u)
             : slugOf(u ? `https://luma.com/${u}` : null),
-        name: it?.name ?? it?.event?.name ?? null,
+        name: it?.name ?? ev?.name ?? null,
+        // Home's next-event card renders from these; each stays null when
+        // the page doesn't carry it and the card degrades around it.
+        startAt: it?.start_at ?? ev?.start_at ?? null,
+        endAt: ev?.end_at ?? null,
+        timezone: ev?.timezone ?? null,
+        venue:
+          (geo && geo.mode !== "obfuscated" && geo.address) ||
+          geo?.city_state ||
+          geo?.city ||
+          null,
+        // The public surface carries the RSVP count but NO capacity number
+        // (ticket_count mirrors guest_count), so the card renders RSVPs
+        // only and omits the capacity tile rather than faking one.
+        guestCount: Number.isFinite(guests) ? guests : null,
+        hideRsvp: Boolean(ev?.hide_rsvp),
       };
     })
     .filter((e) => e.eventId || e.slug);
+}
+
+// The soonest entry that hasn't ended yet — an in-progress event still
+// reads as the next one at the venue door. Undated entries can't be
+// ordered and are skipped. `now` is injectable for tests.
+export function nextUpcoming(events, now = new Date()) {
+  const t = +now;
+  return (
+    (events ?? [])
+      .filter((e) => {
+        const start = Date.parse(e?.startAt ?? "");
+        if (Number.isNaN(start)) return false;
+        const end = Date.parse(e?.endAt ?? "");
+        return (Number.isNaN(end) ? start : end) > t;
+      })
+      .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0] ?? null
+  );
+}
+
+// Whole calendar days until the start, in the event's own timezone — the
+// day boundary that matters is the venue's, not the device's. 0 = today.
+// Null on junk input. Both dates come off the same wall-clock rules the
+// card line uses, so the chip can never disagree with the line it sits on:
+// an offset-bearing start takes its own date and puts `now` in that same
+// offset; Z/naive starts use the event timezone (device zone when absent).
+export function daysOut(startAt, timezone, now = new Date()) {
+  const s = wallParts(startAt, timezone);
+  if (!s || Number.isNaN(+now)) return null;
+  let nowYmd;
+  if (s.offsetMinutes != null) {
+    nowYmd = new Date(+now + s.offsetMinutes * 60000)
+      .toISOString()
+      .slice(0, 10);
+  } else {
+    try {
+      nowYmd = new Intl.DateTimeFormat("en-CA", {
+        timeZone: s.tz,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(now);
+    } catch {
+      return null;
+    }
+  }
+  // Both parse as UTC midnights, so the difference is exact days.
+  return Math.round((Date.parse(s.ymd) - Date.parse(nowYmd)) / 864e5);
+}
+
+// The chip label above the card's date line. An in-progress event whose
+// start was before the venue's midnight is still happening now, so a
+// non-positive count reads "Today" rather than a negative day count.
+// Null (junk input) means no chip at all.
+export function daysOutLabel(startAt, timezone, now = new Date()) {
+  const d = daysOut(startAt, timezone, now);
+  if (d == null) return null;
+  return d <= 0 ? "Today" : d === 1 ? "Tomorrow" : `${d} days out`;
 }
 
 // Match the pasted event against the calendar's upcoming list: stable evt-…
