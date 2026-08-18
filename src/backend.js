@@ -10,6 +10,8 @@
 // deep link; it never sends or writes anything itself. The self-serve join
 // link survives as a demoted secondary fallback (ADR 0002).
 
+import { isValidEmail } from "./parse.js";
+
 export const JOIN_LINK = "https://groups.google.com/g/bgn-wg/about";
 export const JOIN_MAIL = "bgn-wg+subscribe@googlegroups.com";
 // The group's owner UI — the drain screen's deep-link target and the ONLY
@@ -43,7 +45,7 @@ export async function handOffJoinLink(email) {
     await navigator.share({ title: SUBJECT, text: composeMessage() });
     return;
   }
-  if (!/.+@.+\..+/.test(email))
+  if (!isValidEmail(email))
     throw new Error("no share target and no valid email");
   await openExternal(singleMailtoUri(email));
 }

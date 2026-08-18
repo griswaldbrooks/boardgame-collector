@@ -298,6 +298,17 @@ function oneMode() {
     () => isValidEmail(state.email),
     submitOne,
   );
+  // The fallback needs an address too (no Web Share API in the Android
+  // WebView), so it carries the same gate and instruction-label idiom.
+  const share = cta(
+    () =>
+      isValidEmail(state.email)
+        ? "Or send them the self-serve join link"
+        : "Enter an email to share the join link",
+    () => isValidEmail(state.email),
+    shareJoinLink,
+  );
+  share.btn.className = "link-btn";
   const emailInput = h("input", {
     class: "input",
     inputmode: "email",
@@ -307,6 +318,7 @@ function oneMode() {
     oninput: (e) => {
       state.email = e.target.value;
       submit.update();
+      share.update();
     },
   });
   const nameInput = h("input", {
@@ -351,11 +363,7 @@ function oneMode() {
       ),
     ),
     submit.btn,
-    h(
-      "button",
-      { class: "link-btn", type: "button", onclick: shareJoinLink },
-      "Or send them the self-serve join link",
-    ),
+    share.btn,
     agentRow(
       "Have the agent pull everyone who reacted 🎲 in Discord onto the list",
       () => go("agent", { task: HANDOFF_TASK.add }),
@@ -583,15 +591,55 @@ function drainScreen() {
     const mark = cta(
       () => "Mark batch drained ✓",
       () => true,
-      () => {
-        markDrained(batch);
-        flagged.clear();
-        addActivity(
-          `Drained ${batch.length} ${batch.length === 1 ? "add" : "adds"} in Google Groups`,
-        );
-        repaint();
-      },
+      () => setConfirming(true),
     );
+
+    // Clearing the entries is irreversible and this queue is their only
+    // copy, so confirm first — same shape as the broadcast handoff.
+    const confirmBlock = h(
+      "div",
+      { class: "stack" },
+      h(
+        "div",
+        { class: "card" },
+        h("div", { class: "card-title" }, "Clear this batch from the queue?"),
+        h(
+          "div",
+          { class: "card-body" },
+          `This drops ${batch.length} queued ${batch.length === 1 ? "address" : "addresses"} from this device for good. Only do it once you've submitted them in Google Groups' own Add members box.`,
+        ),
+      ),
+      h(
+        "button",
+        {
+          class: "cta",
+          type: "button",
+          onclick: () => {
+            markDrained(batch);
+            flagged.clear();
+            addActivity(
+              `Drained ${batch.length} ${batch.length === 1 ? "add" : "adds"} in Google Groups`,
+            );
+            repaint();
+          },
+        },
+        "Yes — they're in Google Groups",
+      ),
+      h(
+        "button",
+        {
+          class: "btn-secondary",
+          type: "button",
+          onclick: () => setConfirming(false),
+        },
+        "Keep them queued",
+      ),
+    );
+
+    const tail = h("div", { class: "stack" }, mark.btn);
+    function setConfirming(on) {
+      tail.replaceChildren(on ? confirmBlock : mark.btn);
+    }
 
     // replaceChildren would stringify a null child, so drop the invite card
     // slot when nothing is flagged.
@@ -617,11 +665,13 @@ function drainScreen() {
           ),
           rows,
         ),
-        pasteCard(
-          "Direct add — copy this block",
-          "Google Groups → Members → Add members → the direct-add box.",
-          direct,
-        ),
+        direct.length
+          ? pasteCard(
+              "Direct add — copy this block",
+              "Google Groups → Members → Add members → the direct-add box.",
+              direct,
+            )
+          : null,
         invites.length
           ? pasteCard(
               "Invite — copy this block",
@@ -640,7 +690,7 @@ function drainScreen() {
           `${left} of ~${DRAIN_LIMIT} adds left today${more ? ` · ${more} more queued for the next batch` : ""}`,
         ),
         notice,
-        mark.btn,
+        tail,
       ].filter((n) => n != null),
     );
   }

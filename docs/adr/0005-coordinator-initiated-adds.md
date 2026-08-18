@@ -44,7 +44,9 @@ Flow 1 becomes capture-then-drain, and the app never sends or writes anything:
   copy-ready paste block for Google Groups' owner Add members direct-add box,
   with a deep link to `https://groups.google.com/g/bgn-wg/members`. The
   coordinator pastes and submits in Google's signed-in UI, then marks the
-  batch drained in-app, which clears those queue entries.
+  batch drained in-app, which clears those queue entries — behind an
+  on-screen confirm, because the queue is the only copy of those addresses
+  and clearing them cannot be undone.
 - **Honest dual-path.** One primary direct-add block; the coordinator taps an
   address's chip to flag it, which moves it into a second copy block for the
   invite box. The app never guesses which path an address needs, because it
@@ -57,6 +59,10 @@ Flow 1 becomes capture-then-drain, and the app never sends or writes anything:
   share-sheet / mailto handoff as before.
 - **No roster machinery.** Roster CSV sync is deliberately not built;
   Google's own duplicate rejection covers dedupe.
+- **Scan stays unbuilt.** README open question 1 is settled the same day:
+  the Scan sign-up-sheet screen is deliberately skipped, so the join link is
+  the single-add screen's sole secondary action and the spec's Scan screen
+  stays unreachable (README §3, §8).
 
 ## Rejected for v1
 

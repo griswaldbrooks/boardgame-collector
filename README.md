@@ -157,7 +157,7 @@ Row labels (shown to the user, not the pre-fill):
   - `Met them at` — chip row, wraps, `gap 8px`: `At an event` (default) · `Discord` · `Friend referral` · `Website form`.
 - **Explainer:** `background #FFFDF9`, `border 1px solid #EFE7DA`, `border-radius 14px`, `padding 14px 16px`, flex row `gap 11px`. `◔` glyph in `#B34700`; body 12.5px `#6B6459` `line-height 1.45`: "Queues them on this device; you finish the add in `bgn-wg`'s Google Groups page from home — they do nothing at the door." The group name renders in IBM Plex Mono 12px.
 - **CTA:** enabled only when email matches `/.+@.+\..+/`. Label `Add to the list`, disabled label `Enter an email`.
-- **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Or send them the self-serve join link` — the demoted join-link fallback: hands the join-link message to the coordinator's own apps (device share sheet; mailto to the member where there is no Web Share API).
+- **Secondary:** centered text link, 13.5px weight 600 `#3273DC`, `Or send them the self-serve join link` — the demoted join-link fallback: hands the join-link message to the coordinator's own apps (device share sheet; mailto to the member where there is no Web Share API). Enabled on the same `/.+@.+\..+/` rule as the CTA, since the mailto fallback needs an address; disabled label `Enter an email to share the join link`.
 - **Agent handoff row.**
 
 **Mode: Paste a batch**
@@ -168,7 +168,7 @@ Row labels (shown to the user, not the pre-fill):
 - **CTA:** `Queue <n> for the list`, disabled label `Paste some emails`.
 - **Agent handoff row.**
 
-**Capture mechanism (coordinator-initiated adds):** submitting queues the address(es) on-device in the durable offline queue — optimistic confirm, zero member action, no network. From Home, a non-empty queue shows a banner card leading to the **drain screen**: a copy-ready paste block of the queued addresses (FIFO) for Google Groups' owner Add members direct-add box, a deep link to `https://groups.google.com/g/bgn-wg/members`, and a per-address flag that moves entries into a second copy block for the invite box (an owner cannot direct-add an address without a Google account on `@googlegroups.com` groups, and the app cannot detect which path an address needs — it never guesses). Each batch is capped at 100 addresses and tracked against what was marked drained today, defending against the community-reported ~100/day owner-add throttle; the rest stays queued for the next batch. Marking the batch drained clears those queue entries. The app copies text and opens a browser intent — it never sends or writes anything; the coordinator acting in Google's signed-in UI is the only write path (`docs/adr/0005-coordinator-initiated-adds.md`).
+**Capture mechanism (coordinator-initiated adds):** submitting queues the address(es) on-device in the durable offline queue — optimistic confirm, zero member action, no network. From Home, a non-empty queue shows a banner card leading to the **drain screen**: a copy-ready paste block of the queued addresses (FIFO) for Google Groups' owner Add members direct-add box, a deep link to `https://groups.google.com/g/bgn-wg/members`, and a per-address flag that moves entries into a second copy block for the invite box (an owner cannot direct-add an address without a Google account on `@googlegroups.com` groups, and the app cannot detect which path an address needs — it never guesses). Each batch is capped at 100 addresses and tracked against what was marked drained today, defending against the community-reported ~100/day owner-add throttle; the rest stays queued for the next batch. Marking the batch drained clears those queue entries, behind an on-screen confirm (the queue is the only copy of those addresses). The app copies text and opens a browser intent — it never sends or writes anything; the coordinator acting in Google's signed-in UI is the only write path (`docs/adr/0005-coordinator-initiated-adds.md`).
 
 ### 3. Scan sign-up sheet
 
@@ -274,7 +274,7 @@ Copy per outcome:
 |---|---|---|
 | Single add | `Queued for the list` | `<name or email> is queued on this device — finish the add in Google Groups from home.` |
 | Batch add | `Queued <n> for the list` | `They're queued on this device — finish the adds in Google Groups from home.` |
-| Scan | `Invited 3 people` | `Pulled from the sign-up sheet and sent to the Google Group.` |
+| Scan | — | Deliberately skipped (captain decision, 2026-08-18, open question 1): the Scan screen stays unbuilt and unreachable, so it has no done copy. |
 | Message sent | `Message sent` | `Your mail app has the message — send it there to reach <n> members / the list. It'll also show up in the group archive.` |
 | Luma added | `Finish adding in Luma` | `Luma opens at our calendar's add-event panel. Paste the link there — <title> shows on our calendar once it's confirmed.` |
 | Contact saved | `Contact saved 📇` | `<name> is in the coordinator address book. No emails sent.` |
@@ -396,7 +396,7 @@ The app bundles the same faces instead (`@fontsource`, imported in `src/main.js`
 
 ## Open Questions for the Coordinators
 
-1. Is QR/OCR scanning at the door real, or is batch paste enough? (Affects whether screen 3 ships at all.)
+1. ~~Is QR/OCR scanning at the door real, or is batch paste enough?~~ Answered no for v1 — batch paste is enough, so screen 3 is deliberately skipped and stays unbuilt and unreachable (captain decision, 2026-08-18, `docs/adr/0005-coordinator-initiated-adds.md`).
 2. ~~Should Luma import check for duplicates against the existing calendar?~~ Answered yes — v1 ships a best-effort check against the calendar's public page, and a hit reads as already-on-calendar rather than an error (`docs/adr/0004-credential-free-luma-handoff.md`).
 3. What exactly may the Discord agent do unsupervised, and what always needs approval? The prototype assumes anything that emails members or spends money is gated.
 4. How many coordinators need access, and does the contact book need per-person privacy or is shared fine?
