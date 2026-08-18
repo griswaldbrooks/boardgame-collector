@@ -11,7 +11,7 @@ import "./styles.css";
 import { start } from "./router.js";
 import { render } from "./screens.js";
 
-// Pending share intents are forwarded on submit (a handoff needs a
-// coordinator gesture), so there is nothing to drain at boot — the queue
-// just keeps them until the next add.
+// Adds queue on this device at the door and wait for the drain screen
+// (ADR 0005), so there is nothing to do at boot — the queue keeps them
+// until the coordinator finishes them in Google Groups' own UI.
 start(render);

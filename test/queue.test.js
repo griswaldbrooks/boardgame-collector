@@ -1,10 +1,11 @@
-// Store-and-forward queue (ADR 0002): a handoff the OS never accepted must
-// stay pending across an app restart. localStorage and the WebView's
-// `window.location.href = mailto:` are stubbed here — nothing is sent.
+// Device-local capture queue (ADR 0005): door submissions queue offline and
+// survive a kill/relaunch, the drain presents a defensively capped FIFO
+// batch, and markDrained clears exactly the drained entries and counts them
+// against the ~100/day budget. localStorage is stubbed — nothing leaves the
+// machine, and the flow touches no network at all.
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { JOIN_LINK } from "../src/backend.js";
 
 // Survives module reloads, like the device's localStorage survives a restart.
 const store = new Map();
@@ -13,55 +14,96 @@ globalThis.localStorage = {
   setItem: (k, v) => store.set(k, v),
 };
 
-let handed = [];
-let mailAppMissing = false;
-globalThis.window = {
-  location: {
-    set href(uri) {
-      if (mailAppMissing) throw new Error("no app can handle mailto:");
-      handed.push(uri);
-    },
-  },
-};
-
+let run = 0;
 // A cold start: fresh module state, same persisted queue.
-const relaunch = () =>
-  import(`../src/queue.js?run=${store.size}-${handed.length}`);
+const relaunch = () => import(`../src/queue.js?run=${run++}`);
+const reset = () => store.clear();
 
-test("a handoff the OS refuses stays queued across a restart", async () => {
+test("door submissions queue locally and survive a kill/relaunch", async () => {
+  reset();
   const app = await relaunch();
-  app.enqueue({ kind: "one", email: "alex@example.com" });
+  app.enqueue({ kind: "one", email: "alex@example.com", name: "Alex" });
+  app.enqueue({ kind: "batch", emails: ["jo@example.com", "sam@example.com"] });
 
-  mailAppMissing = true; // airplane-mode stand-in: the handoff never lands
-  await app.forward();
-  assert.equal(handed.length, 0);
-  assert.equal(
-    JSON.parse(store.get("bgn.adds.v1")).length,
-    1,
-    "intent kept pending",
-  );
-
-  // Kill and relaunch, then submit again with a mail app available.
+  // Offline the whole time — there is no handoff to attempt any more.
   const restarted = await relaunch();
-  mailAppMissing = false;
-  await restarted.forward();
-  assert.match(handed[0], /^mailto:alex%40example\.com\?/);
-  assert.ok(handed[0].includes(encodeURIComponent(JOIN_LINK)));
   assert.deepEqual(
-    JSON.parse(store.get("bgn.adds.v1")),
-    [],
-    "drained once handed off",
+    restarted.pendingAddresses(),
+    ["alex@example.com", "jo@example.com", "sam@example.com"],
+    "capture order survives the restart",
   );
 });
 
-test("a batch add hands the coordinator's mail app one BCC'd message", async () => {
+test("the drain batch is capped at 100; the rest stays queued", async () => {
+  reset();
   const app = await relaunch();
-  handed = [];
-  app.enqueue({ kind: "batch", emails: ["jo@example.com", "sam@example.com"] });
-  await app.forward();
-  assert.equal(handed.length, 1, "one message, not one per address");
-  assert.ok(
-    handed[0].startsWith("mailto:?bcc=jo%40example.com,sam%40example.com"),
+  app.enqueue({
+    kind: "batch",
+    emails: Array.from({ length: 130 }, (_, i) => `guest${i}@example.com`),
+  });
+
+  const restarted = await relaunch();
+  assert.equal(restarted.DRAIN_LIMIT, 100);
+  assert.equal(
+    restarted.nextBatch().length,
+    100,
+    "no mega-batch that could trip the throttle",
   );
-  assert.deepEqual(JSON.parse(store.get("bgn.adds.v1")), []);
+  assert.equal(
+    restarted.pendingAddresses().length,
+    130,
+    "the rest waits for the next batch",
+  );
+});
+
+test("markDrained clears drained entries, rewrites a split batch, keeps the rest", async () => {
+  reset();
+  const app = await relaunch();
+  app.enqueue({ kind: "one", email: "alex@example.com" });
+  app.enqueue({
+    kind: "batch",
+    emails: ["jo@example.com", "sam@example.com", "kim@example.com"],
+  });
+
+  app.markDrained(["alex@example.com", "jo@example.com"]);
+  const restarted = await relaunch();
+  assert.deepEqual(restarted.pendingAddresses(), [
+    "sam@example.com",
+    "kim@example.com",
+  ]);
+});
+
+test("markDrained counts drained adds against today's ~100 budget", async () => {
+  reset();
+  const app = await relaunch();
+  const emails = Array.from({ length: 105 }, (_, i) => `guest${i}@example.com`);
+  app.enqueue({ kind: "batch", emails });
+  app.markDrained(emails.slice(0, 100));
+
+  assert.equal(app.drainedToday(), 100);
+  assert.equal(app.remainingToday(), 0, "budget spent");
+  const restarted = await relaunch();
+  assert.deepEqual(restarted.nextBatch(), [], "nothing more presents today");
+  assert.equal(
+    restarted.pendingAddresses().length,
+    5,
+    "the rest is queued for tomorrow",
+  );
+});
+
+test("markDrained ignores addresses that were never queued", async () => {
+  reset();
+  const app = await relaunch();
+  app.enqueue({ kind: "one", email: "alex@example.com" });
+  app.markDrained(["ghost@example.com"]); // not in the queue
+  assert.equal(app.drainedToday(), 0, "nothing removed, nothing counted");
+  assert.deepEqual(app.pendingAddresses(), ["alex@example.com"]);
+});
+
+test("the budget resets with the day", async () => {
+  reset();
+  store.set("bgn.drainlog.v1", JSON.stringify({ day: "1999-1-1", n: 100 }));
+  const app = await relaunch();
+  assert.equal(app.drainedToday(), 0, "yesterday's tally does not carry over");
+  assert.equal(app.remainingToday(), app.DRAIN_LIMIT);
 });

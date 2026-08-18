@@ -1,17 +1,23 @@
 // The swap points between the app and the outside world. The app never
 // performs the privileged act itself — it composes, a human's own apps
-// execute (ADR 0002 join link, ADR 0002 broadcast mailto, ADR 0004 Luma).
+// execute (ADR 0005 add drain, ADR 0002 broadcast mailto, ADR 0004 Luma).
 //
-// v1 add (docs/adr/0002-self-serve-join-link.md): consumer googlegroups.com
-// groups have no membership API, so the app composes a message with the
-// join link and hands it to the coordinator's own apps — the device share
-// sheet for a single add, one BCC'd email for a batch. Composing works
-// offline and needs no network here.
+// v1 add (docs/adr/0005-coordinator-initiated-adds.md): consumer
+// googlegroups.com groups have no membership API, so adds are captured into
+// the device-local queue at the door and drained at home in Google Groups'
+// own owner UI — the coordinator pastes the app's copy-ready blocks there
+// and submits. The app's only moves are clipboard copy and a browser
+// deep link; it never sends or writes anything itself. The self-serve join
+// link survives as a demoted secondary fallback (ADR 0002).
 
 export const JOIN_LINK = "https://groups.google.com/g/bgn-wg/about";
 export const JOIN_MAIL = "bgn-wg+subscribe@googlegroups.com";
+// The group's owner UI — the drain screen's deep-link target and the ONLY
+// write path for adds: the coordinator is signed in there, the app just
+// opens the page.
+export const MEMBERS_URL = "https://groups.google.com/g/bgn-wg/members";
 // Mailing a Google Group's own address IS broadcasting to it, so Flow 2's
-// send mechanism is the same self-serve pattern as the add flow (ADR 0002):
+// send mechanism is the same compose-and-hand-off pattern (ADR 0002):
 // compose a mailto and let the coordinator's own mail app do the sending.
 export const LIST_MAIL = "bgn-wg@googlegroups.com";
 
@@ -28,10 +34,24 @@ export function singleMailtoUri(email) {
   return `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(composeMessage())}`;
 }
 
-// One message to the whole batch, recipients in BCC, sent by the
-// coordinator's own mail app (captain decision, 2026-08-15).
-export function batchMailtoUri(emails) {
-  return `mailto:?bcc=${emails.map(encodeURIComponent).join(",")}&subject=${encodeURIComponent(SUBJECT)}&body=${encodeURIComponent(composeMessage())}`;
+// Demoted fallback (ADR 0005): when the member at the door can self-serve,
+// the coordinator shares the join-link message instead of queueing. The
+// device share sheet does the handing; with no Web Share API (Android
+// WebView) it falls back to a mailto addressed to the member.
+export async function handOffJoinLink(email) {
+  if (navigator.share) {
+    await navigator.share({ title: SUBJECT, text: composeMessage() });
+    return;
+  }
+  if (!/.+@.+\..+/.test(email))
+    throw new Error("no share target and no valid email");
+  await openExternal(singleMailtoUri(email));
+}
+
+// Open the group's owner UI in the coordinator's browser — the drain
+// screen's deep link. Just an ACTION_VIEW intent; the app sends nothing.
+export async function openMembersPage() {
+  await openExternal(MEMBERS_URL);
 }
 
 // Flow 2 broadcast: the edited preview's subject + body, addressed to the
@@ -144,24 +164,8 @@ async function openExternal(uri) {
 // Hand the confirmed broadcast to the coordinator's mail app. Resolves once
 // the OS accepts the handoff; throws when it can't (no mail app), and the
 // caller stays on the confirm step — the draft is untouched, so tapping again
-// retries. No store-and-forward here on purpose: the add queue must not have
-// a broadcast parked at its head blocking join-link handoffs.
+// retries. Deliberately not queued: the on-screen confirm step is the retry,
+// and a parked broadcast must not sit in the add queue (ADR 0005).
 export async function handOffBroadcast({ subject, body }) {
   await openExternal(broadcastMailtoUri(subject, body));
-}
-
-// Hand one pending intent to the coordinator's apps. Resolves once the OS
-// accepts the handoff; throws when it can't (no share target / no mail app),
-// and the queue keeps the intent pending — store-and-forward.
-export async function handOff(intent) {
-  if (intent.kind === "batch") {
-    await openExternal(batchMailtoUri(intent.emails));
-    return;
-  }
-  if (navigator.share) {
-    await navigator.share({ title: SUBJECT, text: composeMessage() });
-    return;
-  }
-  // No Web Share API (Android WebView): a mailto addressed to the member.
-  await openExternal(singleMailtoUri(intent.email));
 }
