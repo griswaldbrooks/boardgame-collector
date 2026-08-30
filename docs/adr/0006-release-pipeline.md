@@ -36,9 +36,17 @@ The alternative (auto-bump patch + commit back to main from CI) needs bot
 write access to the default branch and conflict handling for zero benefit at
 this app's release cadence. To cut a release, bump `version` in the PR. A
 `workflow_dispatch` input `force` exists to re-upload the APK onto an
-existing tag (testing/recovery only); only push-triggered runs move
-GitHub's `latest` pointer, so a recovery re-upload of an older version
-cannot point the updater backwards.
+existing tag (testing/recovery only).
+
+**Only push-triggered runs claim `latest`** (`make_latest` is set from
+`github.event_name == 'push'`). `workflow_dispatch` is the test/recovery
+path, so a forced re-upload of an older version can never point the
+updater backwards. The cost is that a dispatch-created release does not
+advance `latest` even when it is a forward version — so recover a flaky
+main-merge release run with GitHub's re-run button, not a dispatch: a
+re-run keeps the original `push` event, and `latest` advances normally.
+If a dispatch did create the newest release, flip `latest` once by hand
+in the Releases UI.
 
 **Signing** uses a persistent PKCS12 keystore (RSA 4096, ~31-year validity,
 alias `bgn-coordinator`). The keystore (base64) and its password live ONLY
