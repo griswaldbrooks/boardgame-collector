@@ -159,4 +159,4 @@ jobs:
           name: ${{ needs.version.outputs.tag }}
           files: ${{ env.asset }}
           generate_release_notes: true
-          make_latest: ${{ github.event_name == 'push' }}
+          make_latest: ${{ github.event_name == 'push' && 'true' || 'legacy' }}

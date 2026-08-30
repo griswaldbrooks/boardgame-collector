@@ -38,15 +38,15 @@ this app's release cadence. To cut a release, bump `version` in the PR. A
 `workflow_dispatch` input `force` exists to re-upload the APK onto an
 existing tag (testing/recovery only).
 
-**Only push-triggered runs claim `latest`** (`make_latest` is set from
-`github.event_name == 'push'`). `workflow_dispatch` is the test/recovery
-path, so a forced re-upload of an older version can never point the
-updater backwards. The cost is that a dispatch-created release does not
-advance `latest` even when it is a forward version — so recover a flaky
-main-merge release run with GitHub's re-run button, not a dispatch: a
-re-run keeps the original `push` event, and `latest` advances normally.
-If a dispatch did create the newest release, flip `latest` once by hand
-in the Releases UI.
+**Only push-triggered runs claim `latest`.** A push run sends
+`make_latest: true` and promotes its release explicitly. A
+`workflow_dispatch` run sends `make_latest: legacy`, which leaves the
+pointer to GitHub's own determination — so the test/recovery path
+neither promotes an older version nor demotes the current newest one,
+and a forced re-upload cannot point the updater backwards either way.
+Recover a flaky main-merge release run with GitHub's re-run button
+rather than a dispatch: a re-run keeps the original `push` event, so
+`latest` still advances explicitly.
 
 **Signing** uses a persistent PKCS12 keystore (RSA 4096, ~31-year validity,
 alias `bgn-coordinator`). The keystore (base64) and its password live ONLY
