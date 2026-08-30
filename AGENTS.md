@@ -86,6 +86,10 @@ unreachable.
   — `ring` (via tauri-plugin-http → reqwest) needs its C compiler; `tauri
   android build` sets this up itself.
 - APK: `ANDROID_HOME=/home/griswald/Android/Sdk NDK_HOME=/home/griswald/Android/Sdk/ndk/27.2.12479018 npx tauri android build --apk`.
+  That builds a RELEASE APK — unsigned unless `ANDROID_KEYSTORE_FILE` and its
+  passwords are in the environment (`docs/adr/0006-release-pipeline.md`); add
+  `--debug` for an installable one (via npm: `npm run android:build -- --debug`,
+  the `--` is required or the flag never reaches tauri).
   The system `java` is a JRE (no `javac`), so Gradle fails with
   "does not provide the required capabilities: [JAVA_COMPILER]" unless
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
