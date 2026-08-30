@@ -14,6 +14,21 @@ val tauriProperties = Properties().apply {
 }
 
 android {
+    signingConfigs {
+        // Release signing material comes from the environment (CI decodes the
+        // keystore into ANDROID_KEYSTORE_FILE; see release.yml and
+        // docs/adr/0006-release-pipeline.md). Without it the block is empty
+        // and release builds behave exactly as before (unsigned locally).
+        val keystorePath = System.getenv("ANDROID_KEYSTORE_FILE")
+        if (!keystorePath.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(keystorePath)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
     compileSdk = 36
     namespace = "home.bgn.coordinator"
     defaultConfig {
@@ -38,6 +53,8 @@ android {
             }
         }
         getByName("release") {
+            // Null when ANDROID_KEYSTORE_FILE is unset (local builds) — same as stock.
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }

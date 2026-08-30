@@ -1,8 +1,8 @@
 # CI: frontend build + tests + lint/format, and Rust check/clippy/fmt.
 #
-# The Android APK build is deliberately NOT part of CI: it needs Android
-# SDK/NDK + JDK provisioning (see AGENTS.md "Build") and is out of scope —
-# APKs are built locally with `npm run android:build`.
+# The signed release APK build lives in release.yml (merges to main), not
+# here: PRs only need the checks below. Local debug APKs: `npm run
+# android:build` (see AGENTS.md "Build").
 
 name: CI
 

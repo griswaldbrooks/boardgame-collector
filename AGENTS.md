@@ -66,8 +66,14 @@ unreachable.
   `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
   libs first). Lint/format is eslint + prettier over `src/` and `test/` only
   (`npm run lint`, `npm run format:check`); the generated `support.js` and
-  the prototype `ios-frame.jsx` are excluded. The APK build is local-only by
-  design (needs SDK/NDK; see the workflow's comment).
+  the prototype `ios-frame.jsx` are excluded.
+- Release: `.github/workflows/release.yml` (pushes to main + workflow_dispatch)
+  builds the SIGNED release arm64 APK and attaches it to a GitHub Release
+  tagged from the Tauri config version. Merge without a version bump = green
+  skip. Version/versionCode convention, the signing keystore, and the stable
+  updater contract (tag `vX.Y.Z`, asset `bgn-coordinator_<X.Y.Z>_arm64.apk`)
+  are documented in `docs/adr/0006-release-pipeline.md` — keep both stable,
+  a future in-app self-updater parses them.
 - Emulator: AVDs `fm-contacts` and `skydash-smoke` (`emulator -list-avds`).
   Several agents may verify concurrently — boot your own instance on a free
   port (`emulator -avd <name> -port <unique> -no-window -no-audio
@@ -85,15 +91,17 @@ unreachable.
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
   `JAVA_HOME=~/.gradle/jdks/eclipse_adoptium-17-amd64-linux.2`.
 - `src-tauri/gen/android` is generated (`npx tauri android init`) and committed,
-  like skydash-app. Four files in it are hand-patched or hand-added, so a regen
+  like skydash-app. Five files in it are hand-patched or hand-added, so a regen
   silently clobbers them: `AndroidManifest.xml` (portrait-only per the spec,
   plus `allowBackup="false"` + `dataExtractionRules` so the device-local
   contact book never leaves the device), `res/xml/data_extraction_rules.xml`
   (hand-added; excludes everything, incl. the WebView `app_webview` store, from
   cloud backup and Android 12+ device transfer), `MainActivity.kt` (pads
   content by the system-bar insets instead of the generated
-  `enableEdgeToEdge()`), and `res/values/themes.xml` (`windowLightStatusBar`
-  for the light page background).
+  `enableEdgeToEdge()`), `res/values/themes.xml` (`windowLightStatusBar`
+  for the light page background), and `app/build.gradle.kts` (release
+  `signingConfigs` block reading the keystore from the environment —
+  `docs/adr/0006-release-pipeline.md`).
 
 ## Maintaining this file
 
