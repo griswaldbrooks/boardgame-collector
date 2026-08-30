@@ -36,7 +36,9 @@ The alternative (auto-bump patch + commit back to main from CI) needs bot
 write access to the default branch and conflict handling for zero benefit at
 this app's release cadence. To cut a release, bump `version` in the PR. A
 `workflow_dispatch` input `force` exists to re-upload the APK onto an
-existing tag (testing/recovery only).
+existing tag (testing/recovery only); only push-triggered runs move
+GitHub's `latest` pointer, so a recovery re-upload of an older version
+cannot point the updater backwards.
 
 **Signing** uses a persistent PKCS12 keystore (RSA 4096, ~31-year validity,
 alias `bgn-coordinator`). The keystore (base64) and its password live ONLY
