@@ -11,8 +11,7 @@ name: Release
 
 on:
   push:
-    # fm/* entry is TEMPORARY for pipeline validation before merge — revert to [main].
-    branches: [main, fm/boardgame-release-ci]
+    branches: [main]
   workflow_dispatch:
     inputs:
       force:
