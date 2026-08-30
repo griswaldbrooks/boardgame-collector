@@ -22,7 +22,11 @@ machine-readable release surface.
 `workflow_dispatch`.
 
 **Version source of truth** is `src-tauri/tauri.conf.json` `version`
-(semver). The release is tagged `vX.Y.Z` from it.
+(semver). The release is tagged `vX.Y.Z` from it. The workflow fails the run
+if that version is not plain `X.Y.Z` (a suffix breaks the machine API below)
+or if it is lower than the latest published release — an accidental
+downgrade would otherwise move the `latest` pointer backwards and ship a
+`versionCode` that installed devices reject.
 
 **Android `versionCode`** is not managed by hand. The Tauri CLI derives it
 at build time as `major * 1_000_000 + minor * 1_000 + patch` and writes it
