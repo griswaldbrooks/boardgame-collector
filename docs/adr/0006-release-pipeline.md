@@ -45,7 +45,11 @@ as GitHub Actions repo secrets (`ANDROID_KEYSTORE_BASE64`,
 plus one captain-private offline recovery copy. Gradle's `signingConfigs`
 block in `src-tauri/gen/android/app/build.gradle.kts` activates only when
 `ANDROID_KEYSTORE_FILE` is set, so debug builds and keystore-less local
-release builds are unchanged. **Losing the keystore loses the app's upgrade
+release builds are unchanged. The workflow pins the release certificate's
+SHA-256 and fails if the built APK carries a different one, so a rotated or
+overwritten keystore secret cannot silently publish an uninstallable
+update; rotating the keystore means updating that pin in
+`.github/workflows/release.yml`. **Losing the keystore loses the app's upgrade
 path** — Android only treats an update as the same app when signed with the
 same key; recovery is the offline copy, and last resort is a new application
 id (reinstall).

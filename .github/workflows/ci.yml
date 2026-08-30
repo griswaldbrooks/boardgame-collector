@@ -1,8 +1,9 @@
 # CI: frontend build + tests + lint/format, and Rust check/clippy/fmt.
 #
 # The signed release APK build lives in release.yml (merges to main), not
-# here: PRs only need the checks below. Local debug APKs: `npm run
-# android:build` (see AGENTS.md "Build").
+# here: PRs only need the checks below. Local APKs: `npm run android:build`
+# (a RELEASE build, unsigned without ANDROID_KEYSTORE_FILE; add `--debug`
+# for an installable debug APK) - see AGENTS.md "Build".
 
 name: CI
 
