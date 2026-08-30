@@ -77,7 +77,8 @@ jobs:
 
       - name: Install Android NDK and build-tools
         run: |
-          sdkmanager --install "ndk;${NDK_VERSION}" "build-tools;36.0.0"
+          SDKMANAGER=$(ls "${ANDROID_HOME}"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n1)
+          "$SDKMANAGER" --install "ndk;${NDK_VERSION}" "build-tools;36.0.0"
           {
             echo "NDK_HOME=${ANDROID_HOME}/ndk/${NDK_VERSION}"
             echo "ANDROID_NDK_ROOT=${ANDROID_HOME}/ndk/${NDK_VERSION}"
