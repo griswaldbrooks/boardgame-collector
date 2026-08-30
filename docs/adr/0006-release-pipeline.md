@@ -10,11 +10,11 @@ delivery).
 ## Context
 
 The Coordinator App ships as an APK to coordinator devices. Until now APKs
-were built locally only (see AGENTS.md "Build"), unsigned-then-debug-signed
-by Gradle defaults, with no distribution path. The repo is public, so
-signing material can never live in it. The app also wants an in-app
-self-updater eventually, which needs a stable machine-readable release
-surface.
+were built locally only (see AGENTS.md "Build") — release APKs unsigned,
+debug APKs signed with Gradle's throwaway debug key — with no distribution
+path. The repo is public, so signing material can never live in it. The app
+also wants an in-app self-updater eventually, which needs a stable
+machine-readable release surface.
 
 ## Decision
 
