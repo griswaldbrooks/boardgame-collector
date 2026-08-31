@@ -59,15 +59,22 @@ unreachable.
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
   the join-link + broadcast compose logic, the capture/drain queue
-  (batching, mark-drained, daily budget), and the Luma extraction/dedupe
-  chain against fabricated fixtures — no browser needed).
+  (batching, mark-drained, daily budget), the Luma extraction/dedupe
+  chain against fabricated fixtures, and the release workflow's version/tag
+  gate run against stubbed `gh`/`git` — no browser needed).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /
   `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
   libs first). Lint/format is eslint + prettier over `src/` and `test/` only
   (`npm run lint`, `npm run format:check`); the generated `support.js` and
-  the prototype `ios-frame.jsx` are excluded. The APK build is local-only by
-  design (needs SDK/NDK; see the workflow's comment).
+  the prototype `ios-frame.jsx` are excluded.
+- Release: `.github/workflows/release.yml` (pushes to main + workflow_dispatch)
+  builds the SIGNED release arm64 APK and attaches it to a GitHub Release
+  tagged from the Tauri config version. Merge without a version bump = green
+  skip. Version/versionCode convention, the signing keystore, and the stable
+  updater contract (tag `vX.Y.Z`, asset `bgn-coordinator_<X.Y.Z>_arm64.apk`)
+  are documented in `docs/adr/0006-release-pipeline.md` — keep both stable,
+  a future in-app self-updater parses them.
 - Emulator: AVDs `fm-contacts` and `skydash-smoke` (`emulator -list-avds`).
   Several agents may verify concurrently — boot your own instance on a free
   port (`emulator -avd <name> -port <unique> -no-window -no-audio
@@ -80,20 +87,26 @@ unreachable.
   — `ring` (via tauri-plugin-http → reqwest) needs its C compiler; `tauri
   android build` sets this up itself.
 - APK: `ANDROID_HOME=/home/griswald/Android/Sdk NDK_HOME=/home/griswald/Android/Sdk/ndk/27.2.12479018 npx tauri android build --apk`.
+  That builds a RELEASE APK — unsigned unless `ANDROID_KEYSTORE_FILE` and its
+  passwords are in the environment (`docs/adr/0006-release-pipeline.md`); add
+  `--debug` for an installable one (via npm: `npm run android:build -- --debug`,
+  the `--` is required or the flag never reaches tauri).
   The system `java` is a JRE (no `javac`), so Gradle fails with
   "does not provide the required capabilities: [JAVA_COMPILER]" unless
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
   `JAVA_HOME=~/.gradle/jdks/eclipse_adoptium-17-amd64-linux.2`.
 - `src-tauri/gen/android` is generated (`npx tauri android init`) and committed,
-  like skydash-app. Four files in it are hand-patched or hand-added, so a regen
+  like skydash-app. Five files in it are hand-patched or hand-added, so a regen
   silently clobbers them: `AndroidManifest.xml` (portrait-only per the spec,
   plus `allowBackup="false"` + `dataExtractionRules` so the device-local
   contact book never leaves the device), `res/xml/data_extraction_rules.xml`
   (hand-added; excludes everything, incl. the WebView `app_webview` store, from
   cloud backup and Android 12+ device transfer), `MainActivity.kt` (pads
   content by the system-bar insets instead of the generated
-  `enableEdgeToEdge()`), and `res/values/themes.xml` (`windowLightStatusBar`
-  for the light page background).
+  `enableEdgeToEdge()`), `res/values/themes.xml` (`windowLightStatusBar`
+  for the light page background), and `app/build.gradle.kts` (release
+  `signingConfigs` block reading the keystore from the environment —
+  `docs/adr/0006-release-pipeline.md`).
 
 ## Maintaining this file
 

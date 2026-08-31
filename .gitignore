@@ -5,3 +5,4 @@ dist/
 
 # Tauri
 *.apk
+*.keystore
