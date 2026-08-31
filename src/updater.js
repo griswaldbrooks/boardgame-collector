@@ -118,7 +118,7 @@ export async function downloadUpdate(update, onProgress) {
     bytes.set(chunk, at);
     at += chunk.byteLength;
   }
-  await writeFile(APK_NAME, bytes, { baseDir: BaseDirectory.Cache });
+  await writeFile(APK_NAME, bytes, { baseDir: BaseDirectory.AppCache });
 }
 
 // Hand the cached APK to Android's installer (FileProvider + ACTION_VIEW,

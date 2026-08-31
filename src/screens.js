@@ -115,9 +115,10 @@ let updateOffer = null; // { version, url } once decideUpdate offers one
 let updateChecking = false;
 let lastUpdateCheckAt = 0;
 let updateDownloaded = false; // APK is in the app cache dir
+let updateSlot = null; // the currently rendered Home's card slot, if any
 const UPDATE_CHECK_EVERY_MS = 5 * 60 * 1000;
 
-function backgroundUpdateCheck(slot) {
+function backgroundUpdateCheck() {
   if (updateOffer || updateChecking) return;
   if (Date.now() - lastUpdateCheckAt < UPDATE_CHECK_EVERY_MS) return;
   updateChecking = true;
@@ -125,10 +126,11 @@ function backgroundUpdateCheck(slot) {
     .then((offer) => {
       if (!offer) return;
       updateOffer = offer;
-      // The coordinator may have left Home while the check was in flight.
-      if (slot.isConnected) {
-        slot.hidden = false;
-        slot.replaceChildren(updateCard());
+      // Home may have been rebuilt, or left, while the check was in flight;
+      // paint whichever slot is on screen now.
+      if (updateSlot?.isConnected) {
+        updateSlot.hidden = false;
+        updateSlot.replaceChildren(updateCard());
       }
     })
     .catch((err) =>
@@ -372,10 +374,10 @@ function queueCard() {
 }
 
 function homeScreen() {
-  const updateSlot = h("div");
+  updateSlot = h("div");
   if (updateOffer) updateSlot.append(updateCard());
   else updateSlot.hidden = true;
-  backgroundUpdateCheck(updateSlot);
+  backgroundUpdateCheck();
   return shell(
     "Wednesday crew",
     "Home",
@@ -893,11 +895,13 @@ function updateScreen() {
   let progress = "";
   const notice = h("div", { class: "confirm-notice" });
   const dyn = h("div", { class: "stack" });
+  const progressText = h("span");
+  const downloadingLabel = () =>
+    progress ? `Downloading… ${progress}` : "Downloading…";
 
   const submit = cta(
     () => {
-      if (phase === "downloading")
-        return progress ? `Downloading… ${progress}` : "Downloading…";
+      if (phase === "downloading") return downloadingLabel();
       if (phase === "prompted") return "Install now";
       return `Download v${offer.version} and install`;
     },
@@ -908,12 +912,13 @@ function updateScreen() {
   function repaint() {
     const kids = [];
     if (phase === "downloading") {
+      progressText.textContent = downloadingLabel();
       kids.push(
         h(
           "div",
           { class: "card luma-note" },
           h("span", { class: "spinner" }),
-          progress ? `Downloading… ${progress}` : "Downloading…",
+          progressText,
         ),
       );
     } else if (phase === "prompted") {
@@ -944,6 +949,7 @@ function updateScreen() {
         progress = total
           ? `${mb(received)} of ${mb(total)} MB`
           : `${mb(received)} MB`;
+        progressText.textContent = downloadingLabel();
         submit.update();
       });
       updateDownloaded = true;
