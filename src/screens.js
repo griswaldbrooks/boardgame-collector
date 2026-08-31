@@ -143,30 +143,13 @@ function backgroundUpdateCheck() {
 }
 
 function updateCard() {
-  return h(
-    "button",
-    {
-      class: "action-card action-update",
-      type: "button",
-      onclick: () => go("update"),
-    },
-    h("span", { class: "tile" }, "⬆️"),
-    h(
-      "span",
-      { class: "action-text" },
-      h(
-        "span",
-        { class: "action-title" },
-        `Update ready — v${updateOffer.version}`,
-      ),
-      h(
-        "span",
-        { class: "action-sub" },
-        "Download and install the new version",
-      ),
-    ),
-    h("span", { class: "action-chevron" }, "›"),
-  );
+  return actionCard({
+    icon: "⬆️",
+    cls: "action-update",
+    title: `Update ready — v${updateOffer.version}`,
+    sub: "Download and install the new version",
+    screen: "update",
+  });
 }
 
 // Home's next event, live from the group's public Luma calendar — the same
@@ -891,7 +874,10 @@ function updateScreen() {
     );
   }
   const offer = updateOffer;
-  let phase = "idle"; // idle | downloading | prompted
+  // The APK from an earlier visit is still in the app cache dir, so re-entry
+  // goes straight to Install now rather than re-downloading over venue wifi.
+  let phase = updateDownloaded ? "prompted" : "idle"; // idle | downloading | prompted
+  let handedOff = false;
   let progress = "";
   const notice = h("div", { class: "confirm-notice" });
   const dyn = h("div", { class: "stack" });
@@ -930,7 +916,9 @@ function updateScreen() {
           h(
             "div",
             { class: "explain-body" },
-            "Android's installer should have opened. The first time, it asks to allow installs from this app — allow it, come back, and tap Install now again if nothing opened.",
+            handedOff
+              ? "Android's installer should have opened. The first time, it asks to allow installs from this app — allow it, come back, and tap Install now again if nothing opened."
+              : "This update is already downloaded. Tap Install now to hand it to Android's installer — the first time, it asks to allow installs from this app, so allow it and tap again if nothing opened.",
           ),
         ),
       );
@@ -961,6 +949,9 @@ function updateScreen() {
       repaint();
       return;
     }
+    // Left the screen mid-download: the APK stays cached for a later tap
+    // rather than throwing the installer over whatever is on screen now.
+    if (!submit.btn.isConnected) return;
     tryInstall();
   }
 
@@ -968,6 +959,7 @@ function updateScreen() {
     try {
       installUpdate();
       phase = "prompted";
+      handedOff = true;
       notice.textContent = "";
     } catch (err) {
       console.warn(`[update] install handoff failed: ${err?.message ?? err}`);
@@ -978,6 +970,8 @@ function updateScreen() {
     }
     repaint();
   }
+
+  repaint();
 
   return shell(
     "App update",
