@@ -382,6 +382,10 @@ function homeScreen() {
     ACTIONS.map(actionCard),
     sectionLabel("✨ Recent activity"),
     recentCard(),
+    // The installed version — same source as the self-updater's current
+    // version (__APP_VERSION__, inlined from src-tauri/tauri.conf.json by
+    // Vite, docs/adr/0006), one version truth.
+    h("div", { class: "app-version" }, `BGN Coordinator v${__APP_VERSION__}`),
   );
 }
 
