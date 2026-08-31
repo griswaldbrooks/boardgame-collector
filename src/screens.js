@@ -964,9 +964,11 @@ function updateScreen() {
     } catch (err) {
       console.warn(`[update] install handoff failed: ${err?.message ?? err}`);
       notice.textContent = `Couldn't start the installer${err?.message ? ` (${err.message})` : ""}.`;
-      // The APK is on disk: offer the install again instead of wedging in
-      // (or falling back to) the download phase.
-      phase = updateDownloaded ? "prompted" : "idle";
+      // The handoff is the only proof the cached APK is still there (Android
+      // evicts the cache dir freely), so a failure retires it: fall back to
+      // the download rather than offering an install of a file that is gone.
+      updateDownloaded = false;
+      phase = "idle";
     }
     repaint();
   }
