@@ -52,6 +52,7 @@ Per-screen header values:
 | Home | `Wednesday crew` | `Home` | — |
 | Add to list | `Mailing list` | `Add members` | `Cancel` |
 | Drain | `Mailing list` | `Finish the adds` | `Cancel` |
+| Update | `App update` | `Update the app` | `Cancel` |
 | Scan | `Mailing list` | `Scan sheet` | `Cancel` |
 | Message | `<n> members` when the local roster has a count, else `Mailing list` | `Message the list` | `Cancel` |
 | Luma | `Community calendar` | `Add Luma event` | `Cancel` |
@@ -115,19 +116,21 @@ Row labels (shown to the user, not the pre-fill):
 
 **Layout:** vertical stack, `gap 14px`.
 
-1. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it.
+1. **Update card** — only rendered when a newer release is on offer. Same styling as an action card, ⬆️ tile with the Message flow's blue accent: title `Update ready — v<x.y.z>` over sub `Download and install the new version`. Taps to the Update screen. The check itself is anonymous, throttled, and silent on failure (`docs/adr/0007-in-app-self-updater.md`).
+
+2. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it.
    - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `Today` / `Tomorrow` / `<n> days out`, counted in the event's own timezone and hidden when the start can't be read.
    - Two lines, 14px `#444`: the date and time range (`Wednesday, Aug 5 · 6:00–9:00 pm`; the end time drops when it is missing or the event runs overnight) then the venue (`Cambridge Public Library, Lecture Hall`).
    - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **RSVPs**, only when the public calendar carries the count and the event doesn't hide it, then **On the list**, which waits on a member-count source of truth (the roster stub is empty, so it doesn't render yet). There is no **Capacity** stat: the public surface carries no capacity number, so the tile is omitted rather than faked — the prototype's 34/50/412 were placeholders.
    - States, in the lines' place: spinner + `Pulling next event…` on a cold start, `No upcoming events on the calendar.` when the calendar has none, `Couldn't reach the calendar.` when the read fails or its page no longer parses. The last successful read is cached on the device (`bgn.calendar.v1`), so a venue-door cold start on bad wifi shows the last known event instead of nothing — marked `Last known — pulled <n> min ago` while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails. Never unmarked stale data; a failed read never overwrites the cache or claims the calendar is empty.
 
-2. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
+3. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
 
-3. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
+4. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
 
-4. **Section label:** `👇 Do a thing`
+5. **Section label:** `👇 Do a thing`
 
-5. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
+6. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
 
    | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
    |---|---|---|---|---|
@@ -287,7 +290,7 @@ Copy per outcome:
 
 ## Interactions & Behavior
 
-**Navigation.** Single stack, one `screen` value: `home | add | drain | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
+**Navigation.** Single stack, one `screen` value: `home | add | drain | update | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
 
 **Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `broadcast` resets `tpl` to `reminder`, which rebuilds the preview from the template copy and so drops any edited draft. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
 
@@ -391,7 +394,7 @@ Prototype state, all local:
 
 ## Assets
 
-No image assets. All iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
+No image assets. All iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢 ⬆️) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
 
 The prototype loads fonts from Google Fonts:
 `https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap`

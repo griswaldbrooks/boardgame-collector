@@ -74,9 +74,10 @@ id (reinstall).
 - Asset: exactly one APK per release named
   `bgn-coordinator_<X.Y.Z>_arm64.apk` (arm64-v8a only).
 
-A future self-updater can resolve
-`GET /repos/{owner}/{repo}/releases/latest` and match the asset with
-`^bgn-coordinator_(\d+\.\d+\.\d+)_arm64\.apk$`.
+The in-app self-updater resolves
+`GET /repos/{owner}/{repo}/releases/latest` and matches the asset with
+`^bgn-coordinator_(\d+\.\d+\.\d+)_arm64\.apk$`
+(`docs/adr/0007-in-app-self-updater.md`).
 
 ## Consequences
 
