@@ -10,6 +10,10 @@ pub fn run() {
         // — the only write path is the coordinator in Luma's own UI after the
         // handoff). See docs/adr/0004.
         .plugin(tauri_plugin_http::init())
+        // Writes one file only, capability-scoped to the app cache dir: the
+        // self-updater's downloaded APK, handed to Android's installer by
+        // MainActivity.kt. See docs/adr/0007.
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(

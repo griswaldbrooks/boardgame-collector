@@ -41,6 +41,7 @@ import {
 import { saveContact, listContacts, rowOf } from "./contacts.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
+import { checkForUpdates, downloadUpdate, installUpdate } from "./updater.js";
 
 const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 
@@ -104,6 +105,52 @@ const ACTIONS = [
     screen: "contact",
   },
 ];
+
+// Self-updater (docs/adr/0007): one anonymous GET of the project's GitHub
+// Releases on Home entry, throttled, fire-and-forget. It must never block
+// Home or surface an error — bad venue wifi just means no card this time.
+// The offered update survives screen rebuilds until installed; only a
+// strictly newer version is ever offered (src/updater.js's downgrade guard).
+let updateOffer = null; // { version, url } once decideUpdate offers one
+let updateChecking = false;
+let lastUpdateCheckAt = 0;
+let updateDownloaded = false; // APK is in the app cache dir
+let updateSlot = null; // the currently rendered Home's card slot, if any
+const UPDATE_CHECK_EVERY_MS = 5 * 60 * 1000;
+
+function backgroundUpdateCheck() {
+  if (updateOffer || updateChecking) return;
+  if (Date.now() - lastUpdateCheckAt < UPDATE_CHECK_EVERY_MS) return;
+  updateChecking = true;
+  checkForUpdates(__APP_VERSION__)
+    .then((offer) => {
+      if (!offer) return;
+      updateOffer = offer;
+      // Home may have been rebuilt, or left, while the check was in flight;
+      // paint whichever slot is on screen now.
+      if (updateSlot?.isConnected) {
+        updateSlot.hidden = false;
+        updateSlot.replaceChildren(updateCard());
+      }
+    })
+    .catch((err) =>
+      console.warn(`[update] check failed: ${err?.message ?? err}`),
+    )
+    .finally(() => {
+      updateChecking = false;
+      lastUpdateCheckAt = Date.now();
+    });
+}
+
+function updateCard() {
+  return actionCard({
+    icon: "⬆️",
+    cls: "action-update",
+    title: `Update ready — v${updateOffer.version}`,
+    sub: "Download and install the new version",
+    screen: "update",
+  });
+}
 
 // Home's next event, live from the group's public Luma calendar — the same
 // credential-free read Flow 3's dedupe uses (docs/adr/0004), one GET per
@@ -310,10 +357,15 @@ function queueCard() {
 }
 
 function homeScreen() {
+  updateSlot = h("div");
+  if (updateOffer) updateSlot.append(updateCard());
+  else updateSlot.hidden = true;
+  backgroundUpdateCheck();
   return shell(
     "Wednesday crew",
     "Home",
     false,
+    updateSlot,
     nextEventCard(),
     queueCard(),
     // The agent status strip renders only when the agent has work (spec);
@@ -792,6 +844,164 @@ function drainScreen() {
 
   repaint();
   return shell("Mailing list", "Finish the adds", true, dyn);
+}
+
+/* ------------------------------- 2c. Update -------------------------------
+ * Self-updater (docs/adr/0007): download the signed arm64 APK from the
+ * project's GitHub Releases, then hand it to Android's installer. The
+ * installer's own signature check is the integrity story; the first install
+ * also triggers Android's install-unknown-apps prompt. */
+
+const mb = (n) => (n / 1048576).toFixed(1);
+
+function updateScreen() {
+  // Defensive only — the screen is reachable just while an offer is live
+  // (a reload drops the offer, and with it this screen's usefulness).
+  if (!updateOffer) {
+    return shell(
+      "App update",
+      "Up to date",
+      true,
+      h(
+        "div",
+        { class: "card" },
+        h(
+          "div",
+          { class: "empty" },
+          "No update is waiting. Home checks for new versions on its own.",
+        ),
+      ),
+    );
+  }
+  const offer = updateOffer;
+  // The APK from an earlier visit is still in the app cache dir, so re-entry
+  // goes straight to Install now rather than re-downloading over venue wifi.
+  let phase = updateDownloaded ? "prompted" : "idle"; // idle | downloading | prompted
+  let handedOff = false;
+  let progress = "";
+  const notice = h("div", { class: "confirm-notice" });
+  const dyn = h("div", { class: "stack" });
+  const progressText = h("span");
+  const downloadingLabel = () =>
+    progress ? `Downloading… ${progress}` : "Downloading…";
+
+  const submit = cta(
+    () => {
+      if (phase === "downloading") return downloadingLabel();
+      if (phase === "prompted") return "Install now";
+      return `Download v${offer.version} and install`;
+    },
+    () => phase !== "downloading",
+    () => (phase === "prompted" ? tryInstall() : downloadAndInstall()),
+  );
+
+  function repaint() {
+    const kids = [];
+    if (phase === "downloading") {
+      progressText.textContent = downloadingLabel();
+      kids.push(
+        h(
+          "div",
+          { class: "card luma-note" },
+          h("span", { class: "spinner" }),
+          progressText,
+        ),
+      );
+    } else if (phase === "prompted") {
+      kids.push(
+        h(
+          "div",
+          { class: "explain" },
+          h("div", { class: "explain-glyph" }, "◔"),
+          h(
+            "div",
+            { class: "explain-body" },
+            handedOff
+              ? "Android's installer should have opened. The first time, it asks to allow installs from this app — allow it, come back, and tap Install now again if nothing opened."
+              : "This update is already downloaded. Tap Install now to hand it to Android's installer — the first time, it asks to allow installs from this app, so allow it and tap again if nothing opened.",
+          ),
+        ),
+      );
+    }
+    dyn.replaceChildren(...kids);
+    submit.update();
+  }
+
+  async function downloadAndInstall() {
+    phase = "downloading";
+    progress = "";
+    notice.textContent = "";
+    repaint();
+    try {
+      await downloadUpdate(offer, (received, total) => {
+        progress = total
+          ? `${mb(received)} of ${mb(total)} MB`
+          : `${mb(received)} MB`;
+        progressText.textContent = downloadingLabel();
+        submit.update();
+      });
+      updateDownloaded = true;
+    } catch (err) {
+      console.warn(`[update] download failed: ${err?.message ?? err}`);
+      phase = "idle";
+      notice.textContent =
+        "Couldn't download the update. Check the connection and try again.";
+      repaint();
+      return;
+    }
+    // Left the screen mid-download: the APK stays cached for a later tap
+    // rather than throwing the installer over whatever is on screen now.
+    if (!submit.btn.isConnected) return;
+    tryInstall();
+  }
+
+  function tryInstall() {
+    try {
+      installUpdate();
+      phase = "prompted";
+      handedOff = true;
+      notice.textContent = "";
+    } catch (err) {
+      console.warn(`[update] install handoff failed: ${err?.message ?? err}`);
+      notice.textContent = `Couldn't start the installer${err?.message ? ` (${err.message})` : ""}.`;
+      // The handoff is the only proof the cached APK is still there (Android
+      // evicts the cache dir freely), so a failure retires it: fall back to
+      // the download rather than offering an install of a file that is gone.
+      updateDownloaded = false;
+      phase = "idle";
+    }
+    repaint();
+  }
+
+  repaint();
+
+  return shell(
+    "App update",
+    "Update the app",
+    true,
+    h(
+      "div",
+      { class: "card" },
+      h(
+        "div",
+        { class: "card-title" },
+        `v${__APP_VERSION__} → v${offer.version}`,
+      ),
+      h(
+        "div",
+        { class: "card-body" },
+        "Straight from the project's GitHub releases. Android checks the app's signature before it installs, so only updates signed with the same key can replace it.",
+      ),
+    ),
+    dyn,
+    submit.btn,
+    notice,
+    h(
+      "button",
+      { class: "btn-secondary", type: "button", onclick: back },
+      "Later",
+    ),
+  );
 }
 
 /* --------------------------- 4. Message the list --------------------------- */
@@ -1466,6 +1676,7 @@ const SCREENS = {
   home: homeScreen,
   add: addScreen,
   drain: drainScreen,
+  update: updateScreen,
   broadcast: broadcastScreen,
   done: doneScreen,
   agent: agentScreen,
