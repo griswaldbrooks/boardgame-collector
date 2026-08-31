@@ -147,6 +147,8 @@ Row labels (shown to the user, not the pre-fill):
    - `Mon` — Reminder sent — 412 members
    - `Jul 24` — Added "Chess in the Park" to the calendar
 
+8. **Version footer** — centered line closing the screen, reading `BGN Coordinator v<x.y.z>`. Same muted mono as the section labels (IBM Plex Mono 10px uppercase, `letter-spacing 0.12em`, `color #9A9288`), not tappable. So a coordinator can confirm which build is on the phone, especially around the self-updater. The number is the app's real version, inlined at build time from `src-tauri/tauri.conf.json` (the release pipeline's source of truth, `docs/adr/0006-release-pipeline.md`) — the same value the updater compares against the latest release, never a second copy.
+
 ### 1b. Events
 
 **Purpose:** the full upcoming list behind Home's next-event card, which taps through here (captain decision — a separate scrollable page, not expand-in-place on the card; `docs/adr/0008-events-page.md`).
