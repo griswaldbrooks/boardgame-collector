@@ -34,7 +34,7 @@ The prototype renders inside an iPhone bezel (`ios-frame.jsx`). The bezel is sca
 
 ## Screens / Views
 
-There are six screens plus a shared confirmation. Navigation is a single stack: Home is the root, every other screen pushes on top of it and has a **Cancel** action in the header returning to Home.
+The screens are the rows of the header table below, plus a shared confirmation. Navigation is a single stack: Home is the root, every other screen pushes on top of it and has a **Cancel** action in the header returning to Home.
 
 ### Shared: Header
 
@@ -153,9 +153,9 @@ Row labels (shown to the user, not the pre-fill):
 
 **Layout:** vertical stack, `gap 14px`, scrollable. Every event the calendar read returns that hasn't ended yet, soonest first — one card each, same card styling as Home's event card:
 
-- Title row: event name (15px, weight 700, `#222`) left; the same days-out pill as Home (`Today` / `Tomorrow` / `<n> days out`), hidden when the start can't be read.
+- Title row: event name (15px, weight 700, `#222`; `Untitled event` when the calendar doesn't carry one) left; the same days-out pill as Home (`Today` / `Tomorrow` / `<n> days out`), hidden when the start can't be read.
 - Lines, 14px `#444`: the date and time range, the venue, then `<n> RSVPs` — only when the public surface carries the count and the event doesn't hide it (same rule as Home; no capacity anywhere it's absent).
-- Undated entries sort last rather than disappearing.
+- An entry whose start can't be read sorts last rather than disappearing — unless its end date says it is already over.
 
 **Source and states:** the same credential-free read and device cache as Home's card (`fetchCalendarEvents()` / `bgn.calendar.v1`), one fresh read per page entry. The cached list renders instantly; states match the card's honesty — `Last known — pulled <n> min ago` above the list while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails, `Pulling events…` with a spinner when there is no cache yet, `Couldn't reach the calendar.` when there is no cache and the read fails, and `No upcoming events on the calendar.` when the read succeeds with an empty list. A failed read never overwrites the cache or claims the calendar is empty.
 
@@ -318,7 +318,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one, and so is Home's next-event card: their loading, offline, and empty states ship with them, and the card falls back to the last cached read, marked as such (`docs/adr/0004-credential-free-luma-handoff.md`).
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one, and so are Home's next-event card and the Events page behind it: their loading, offline, and empty states ship with them, and both fall back to the last cached read, marked as such (`docs/adr/0004-credential-free-luma-handoff.md`).
 - Empty state for the recent-activity and agent-queue lists.
 
 **Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.
