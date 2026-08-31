@@ -59,8 +59,9 @@ unreachable.
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
   the join-link + broadcast compose logic, the capture/drain queue
-  (batching, mark-drained, daily budget), and the Luma extraction/dedupe
-  chain against fabricated fixtures — no browser needed).
+  (batching, mark-drained, daily budget), the Luma extraction/dedupe
+  chain against fabricated fixtures, and the release workflow's version/tag
+  gate run against stubbed `gh`/`git` — no browser needed).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /
   `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
