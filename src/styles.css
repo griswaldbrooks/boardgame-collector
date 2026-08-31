@@ -450,12 +450,15 @@ button.event-card:active {
    adjacent instead of spread across a space-between row. */
 .event-title {
   flex: 1;
+  min-width: 0;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);
 }
 
 .pill {
+  flex-shrink: 0;
+  white-space: nowrap;
   font-family: var(--mono);
   font-size: 11px;
   color: var(--mail-text);

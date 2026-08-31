@@ -309,15 +309,16 @@ export function nextUpcoming(events, now = new Date()) {
 
 // Every entry that hasn't ended yet, soonest first — the Events page's
 // full list, where nextUpcoming is the Home card's single pick. Same
-// not-ended rule; undated entries can't be ordered, so they go last
-// rather than being dropped. `now` is injectable for tests.
+// not-ended rule; entries with no readable start can't be ordered, so
+// they go last rather than being dropped — unless their end says they
+// are already over. `now` is injectable for tests.
 export function upcomingEvents(events, now = new Date()) {
   const t = +now;
   return (events ?? [])
     .filter((e) => {
       const start = Date.parse(e?.startAt ?? "");
-      if (Number.isNaN(start)) return true;
       const end = Date.parse(e?.endAt ?? "");
+      if (Number.isNaN(start)) return Number.isNaN(end) ? true : end > t;
       return (Number.isNaN(end) ? start : end) > t;
     })
     .sort((a, b) => {

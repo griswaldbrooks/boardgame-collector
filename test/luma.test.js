@@ -484,6 +484,40 @@ test("upcomingEvents: ended-at-now and start-only-past entries drop", () => {
   );
 });
 
+test("upcomingEvents: unreadable start drops when the end is already past", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  // Start unreadable but the end says it is over — not upcoming.
+  assert.deepEqual(
+    upcomingEvents(
+      [{ name: "Over", startAt: null, endAt: "2026-08-17T22:00:00Z" }],
+      now,
+    ),
+    [],
+  );
+  // Start unreadable, end still ahead — kept, and sorted after the dated one.
+  assert.deepEqual(
+    upcomingEvents(
+      [
+        {
+          name: "Undated but running",
+          startAt: "",
+          endAt: "2026-08-19T02:00:00Z",
+        },
+        { name: "Dated", startAt: "2026-08-18T20:00:00Z" },
+      ],
+      now,
+    ).map((e) => e.name),
+    ["Dated", "Undated but running"],
+  );
+  // Neither field readable — kept, as before.
+  assert.deepEqual(
+    upcomingEvents([{ name: "Unknown", startAt: null, endAt: null }], now).map(
+      (e) => e.name,
+    ),
+    ["Unknown"],
+  );
+});
+
 test("upcomingEvents: empty / null input yields an empty list", () => {
   const now = new Date("2026-08-18T19:00:00Z");
   assert.deepEqual(upcomingEvents([], now), []);
