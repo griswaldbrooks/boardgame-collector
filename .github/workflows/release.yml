@@ -11,7 +11,9 @@ name: Release
 
 on:
   push:
-    branches: [main]
+    # TEMPORARY for the captain-ordered final validation of the settled
+    # pipeline (dispatch cannot target a branch-only workflow) — revert to [main].
+    branches: [main, fm/boardgame-release-ci]
   workflow_dispatch:
     inputs:
       force:
