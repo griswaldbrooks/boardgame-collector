@@ -54,14 +54,28 @@ a stub; the batch dupe check uses the same empty roster stub. Screen 3
 (captain decision, 2026-08-18 — batch paste is enough), so it stays
 unreachable.
 
+The in-app self-updater (`docs/adr/0007-in-app-self-updater.md`, captain
+decision 2026-08-30) checks the PUBLIC repo's GitHub Releases anonymously —
+one throttled fire-and-forget GET of `releases/latest` per Home entry,
+never blocking, silent on failure — and offers only a strictly newer
+`vX.Y.Z` release whose `bgn-coordinator_<X.Y.Z>_arm64.apk` asset matches
+the tag. The download buffers fully before `tauri-plugin-fs` writes it to
+the app cache dir (capability-scoped to that one file), and a
+`JavascriptInterface` in MainActivity.kt hands it to Android's installer
+via FileProvider — Android's own signature check is the integrity story,
+the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
+`src/updater.js` and the `BgnInstaller` bridge.
+
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
 - Frontend tests: `npm test` (node:test; covers the pure validation/parse,
   the join-link + broadcast compose logic, the capture/drain queue
   (batching, mark-drained, daily budget), the Luma extraction/dedupe
-  chain against fabricated fixtures, and the release workflow's version/tag
-  gate run against stubbed `gh`/`git` — no browser needed).
+  chain against fabricated fixtures, the release workflow's version/tag
+  gate run against stubbed `gh`/`git`, and the updater's decide logic
+  (parse/compare, offer/no-offer) against fabricated release bodies —
+  no browser or network needed).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /
   `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
@@ -74,7 +88,7 @@ unreachable.
   skip. Version/versionCode convention, the signing keystore, and the stable
   updater contract (tag `vX.Y.Z`, asset `bgn-coordinator_<X.Y.Z>_arm64.apk`)
   are documented in `docs/adr/0006-release-pipeline.md` — keep both stable,
-  a future in-app self-updater parses them.
+  the in-app self-updater parses them (`docs/adr/0007-in-app-self-updater.md`).
 - Emulator: AVDs `fm-contacts` and `skydash-smoke` (`emulator -list-avds`).
   Several agents may verify concurrently — boot your own instance on a free
   port (`emulator -avd <name> -port <unique> -no-window -no-audio
@@ -96,17 +110,22 @@ unreachable.
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
   `JAVA_HOME=~/.gradle/jdks/eclipse_adoptium-17-amd64-linux.2`.
 - `src-tauri/gen/android` is generated (`npx tauri android init`) and committed,
-  like skydash-app. Five files in it are hand-patched or hand-added, so a regen
+  like skydash-app. Six files in it are hand-patched or hand-added, so a regen
   silently clobbers them: `AndroidManifest.xml` (portrait-only per the spec,
-  plus `allowBackup="false"` + `dataExtractionRules` so the device-local
-  contact book never leaves the device), `res/xml/data_extraction_rules.xml`
+  `allowBackup="false"` + `dataExtractionRules` so the device-local contact
+  book never leaves the device, and the self-updater's
+  `REQUEST_INSTALL_PACKAGES` permission), `res/xml/data_extraction_rules.xml`
   (hand-added; excludes everything, incl. the WebView `app_webview` store, from
   cloud backup and Android 12+ device transfer), `MainActivity.kt` (pads
   content by the system-bar insets instead of the generated
-  `enableEdgeToEdge()`), `res/values/themes.xml` (`windowLightStatusBar`
-  for the light page background), and `app/build.gradle.kts` (release
-  `signingConfigs` block reading the keystore from the environment —
-  `docs/adr/0006-release-pipeline.md`).
+  `enableEdgeToEdge()`, and registers the self-updater's `BgnInstaller`
+  JavascriptInterface from `onWebViewCreate` — the FileProvider already in the
+  manifest serves the cached APK to Android's installer; ADR 0007),
+  `res/values/themes.xml` (`windowLightStatusBar` for the light page
+  background), `app/build.gradle.kts` (release `signingConfigs` block reading
+  the keystore from the environment — `docs/adr/0006-release-pipeline.md`),
+  and `app/proguard-rules.pro` (R8 keep rule for the installer bridge's
+  `@JavascriptInterface` methods — release minify strips them otherwise).
 
 ## Maintaining this file
 

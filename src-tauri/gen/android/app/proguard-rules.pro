@@ -5,12 +5,12 @@
 # For more details, see
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# Hand-patch of a generated file (see AGENTS.md): the self-updater's install
+# bridge (MainActivity.Installer) is called from JS by method name — R8 must
+# not rename or strip it (docs/adr/0007).
+-keepclassmembers class home.bgn.coordinator.MainActivity$Installer {
+   @android.webkit.JavascriptInterface <methods>;
+}
 
 # Uncomment this to preserve the line number information for
 # debugging stack traces.

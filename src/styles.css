@@ -566,6 +566,17 @@ textarea.input {
   border-color: var(--message-border);
 }
 
+/* Self-updater card on Home (docs/adr/0007) — message-blue accent */
+.action-update .tile {
+  background: var(--message-bg);
+  border-color: var(--message-border);
+}
+
+.action-update:hover {
+  border-color: var(--message-border);
+  background: #fcfdff;
+}
+
 .action-message:hover {
   border-color: var(--message-border);
   background: #fcfdff;

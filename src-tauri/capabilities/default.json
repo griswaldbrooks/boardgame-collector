@@ -19,6 +19,23 @@
         },
         {
           "url": "https://lu.ma/**"
+        },
+        {
+          "url": "https://api.github.com/**"
+        },
+        {
+          "url": "https://github.com/**"
+        },
+        {
+          "url": "https://objects.githubusercontent.com/**"
+        }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-file",
+      "allow": [
+        {
+          "path": "$APPCACHE/bgn-update.apk"
         }
       ]
     }

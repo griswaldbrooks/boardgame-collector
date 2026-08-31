@@ -6,7 +6,7 @@ export default [
   {
     files: ["src/**/*.js"],
     languageOptions: {
-      globals: { ...globals.browser },
+      globals: { ...globals.browser, __APP_VERSION__: "readonly" },
     },
   },
   {
