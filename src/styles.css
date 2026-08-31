@@ -424,14 +424,32 @@ textarea.input {
   gap: 11px;
 }
 
+/* Home's next-event card is tappable — opens the Events page with the full
+   upcoming list (docs/adr/0008). */
+button.event-card {
+  width: 100%;
+  text-align: left;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
+}
+
+button.event-card:hover,
+button.event-card:active {
+  border-color: var(--calendar-border);
+  background: #fdfcff;
+}
+
 .event-title-row {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
 }
 
+/* flex: 1 pushes the pill (and the Home card's chevron) to the right edge,
+   adjacent instead of spread across a space-between row. */
 .event-title {
+  flex: 1;
   font-size: 15px;
   font-weight: 700;
   color: var(--text-primary);

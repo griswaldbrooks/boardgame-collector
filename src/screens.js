@@ -36,6 +36,7 @@ import {
   formatWhenRange,
   findDuplicate,
   nextUpcoming,
+  upcomingEvents,
   daysOutLabel,
 } from "./luma.js";
 import { saveContact, listContacts, rowOf } from "./contacts.js";
@@ -154,11 +155,12 @@ function updateCard() {
 
 // Home's next event, live from the group's public Luma calendar — the same
 // credential-free read Flow 3's dedupe uses (docs/adr/0004), one GET per
-// Home entry. States: cached last-known (marked) while the read is in
-// flight or when it fails, loading when nothing is cached, offline/error,
-// and empty. RSVP renders only when the public data carries it; the
-// surface has no capacity number, so that tile is omitted rather than
-// faked (the spec's 34/50 were prototype placeholders).
+// Home entry. The card is tappable and opens the Events page with the full
+// upcoming list (docs/adr/0008). States: cached last-known (marked) while
+// the read is in flight or when it fails, loading when nothing is cached,
+// offline/error, and empty. RSVP renders only when the public data carries
+// it; the surface has no capacity number, so that tile is omitted rather
+// than faked (the spec's 34/50 were prototype placeholders).
 function nextEventCard() {
   const pill = h("span", { class: "pill" });
   pill.style.display = "none";
@@ -169,6 +171,7 @@ function nextEventCard() {
     pill.textContent = label ?? "";
     pill.style.display = label == null ? "none" : "";
     const lines = [
+      entry.name,
       formatWhenRange(entry.startAt, entry.endAt, entry.timezone),
       entry.venue,
     ].filter(Boolean);
@@ -247,13 +250,18 @@ function nextEventCard() {
     });
 
   return h(
-    "div",
-    { class: "card event-card" },
+    "button",
+    {
+      class: "card event-card",
+      type: "button",
+      onclick: () => go("events"),
+    },
     h(
       "div",
       { class: "event-title-row" },
       h("div", { class: "event-title" }, "🎲 Next event"),
       pill,
+      h("span", { class: "action-chevron" }, "›"),
     ),
     dyn,
   );
@@ -375,6 +383,115 @@ function homeScreen() {
     sectionLabel("✨ Recent activity"),
     recentCard(),
   );
+}
+
+/* ----------------------------- 1b. Events page ---------------------------- */
+// The full upcoming list behind Home's next-event card (docs/adr/0008 —
+// captain decision: a separate scrollable page, not expand-in-place). Same
+// credential-free read and device cache as the card: the cached list
+// renders instantly, one fresh read runs on entry, and the empty/stale/
+// unreadable states are as honest as the card's.
+
+function eventCard(e) {
+  const label = daysOutLabel(e.startAt, e.timezone);
+  const lines = [
+    formatWhenRange(e.startAt, e.endAt, e.timezone),
+    e.venue,
+    // Same RSVP rule as the Home card: render the count only when the
+    // public surface carries it and the event doesn't hide it.
+    e.guestCount != null && !e.hideRsvp
+      ? `${e.guestCount} ${e.guestCount === 1 ? "RSVP" : "RSVPs"}`
+      : null,
+  ].filter(Boolean);
+  return h(
+    "div",
+    { class: "card" },
+    h(
+      "div",
+      { class: "event-title-row" },
+      h("div", { class: "event-title" }, e.name || "Untitled event"),
+      label == null ? null : h("span", { class: "pill" }, label),
+    ),
+    lines.length
+      ? h(
+          "div",
+          { class: "event-lines" },
+          lines.map((t) => h("div", { class: "event-line" }, t)),
+        )
+      : null,
+  );
+}
+
+function eventsScreen() {
+  const note = h("div", { class: "event-note" });
+  note.style.display = "none"; // .event-note sets display — the hidden attr loses
+  const list = h("div", { class: "stack" });
+
+  const cache = loadCalendarCache();
+  const cached = upcomingEvents(cache?.events);
+
+  const paintList = (events) => list.replaceChildren(...events.map(eventCard));
+  const paintMessage = (text) =>
+    list.replaceChildren(
+      h("div", { class: "card" }, h("div", { class: "empty" }, text)),
+    );
+  const paintLoading = () =>
+    list.replaceChildren(
+      h(
+        "div",
+        { class: "card" },
+        h(
+          "div",
+          { class: "event-note" },
+          h("span", { class: "spinner" }),
+          "Pulling events…",
+        ),
+      ),
+    );
+  const showNote = (text) => {
+    note.textContent = text;
+    note.style.display = "";
+  };
+  const hideNote = () => {
+    note.style.display = "none";
+  };
+
+  if (cached.length) {
+    paintList(cached);
+    showNote(`Last known — pulled ${agoLabel(cache?.ts)}`);
+  } else paintLoading();
+
+  // Same unreadable-is-not-empty rule as the Home card: a null parse takes
+  // the network-failure path, so the cached list survives, marked stale.
+  const paintUnreadable = () => {
+    if (cached.length) {
+      paintList(cached);
+      showNote(`Couldn't reach the calendar — pulled ${agoLabel(cache?.ts)}`);
+    } else {
+      hideNote();
+      paintMessage("Couldn't reach the calendar.");
+    }
+  };
+
+  fetchCalendarEvents()
+    .then((events) => {
+      if (!events) {
+        console.warn("[events] calendar page structure not recognized");
+        paintUnreadable();
+        return;
+      }
+      saveCalendarCache(events);
+      const live = upcomingEvents(events);
+      hideNote();
+      if (live.length) paintList(live);
+      else paintMessage("No upcoming events on the calendar.");
+    })
+    .catch((err) => {
+      console.warn(`[events] calendar read failed: ${err?.message ?? err}`);
+      paintUnreadable();
+    });
+
+  return shell("Community calendar", "Upcoming events", true, note, list);
 }
 
 /* ------------------------- 2. Add to mailing list ------------------------- */
@@ -1674,6 +1791,7 @@ function agentScreen(opts) {
 
 const SCREENS = {
   home: homeScreen,
+  events: eventsScreen,
   add: addScreen,
   drain: drainScreen,
   update: updateScreen,
