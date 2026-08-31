@@ -16,6 +16,7 @@ import {
   parseCalendarEvents,
   findDuplicate,
   nextUpcoming,
+  upcomingEvents,
   daysOut,
   daysOutLabel,
 } from "../src/luma.js";
@@ -429,6 +430,98 @@ test("nextUpcoming: empty / all-past / junk lists yield null", () => {
   assert.equal(nextUpcoming(null, now), null);
   assert.equal(nextUpcoming([{ name: "Undated" }], now), null);
   assert.equal(nextUpcoming([{ startAt: "garbage" }], now), null);
+});
+
+test("upcomingEvents keeps not-ended entries, soonest first, undated last", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  const events = [
+    { name: "Later", startAt: "2026-09-01T22:00:00Z" },
+    {
+      name: "Soonest",
+      startAt: "2026-08-20T00:30:00Z",
+      endAt: "2026-08-20T04:00:00Z",
+    },
+    {
+      name: "Running", // in-progress still counts, like nextUpcoming
+      startAt: "2026-08-18T18:00:00Z",
+      endAt: "2026-08-18T21:00:00Z",
+    },
+    {
+      name: "Past",
+      startAt: "2026-08-10T22:00:00Z",
+      endAt: "2026-08-11T01:00:00Z",
+    },
+    { name: "Undated" },
+  ];
+  assert.deepEqual(
+    upcomingEvents(events, now).map((e) => e.name),
+    ["Running", "Soonest", "Later", "Undated"],
+  );
+  // The input array is not mutated in place.
+  assert.equal(events[0].name, "Later");
+});
+
+test("upcomingEvents: ended-at-now and start-only-past entries drop", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  // End exactly now is no longer upcoming (same strict rule as nextUpcoming).
+  assert.deepEqual(
+    upcomingEvents(
+      [
+        {
+          name: "Ends now",
+          startAt: "2026-08-18T17:00:00Z",
+          endAt: "2026-08-18T19:00:00Z",
+        },
+      ],
+      now,
+    ),
+    [],
+  );
+  // No end date: the start stands in for it, so a started event is over.
+  assert.deepEqual(
+    upcomingEvents([{ name: "Started", startAt: "2026-08-18T15:00:00Z" }], now),
+    [],
+  );
+});
+
+test("upcomingEvents: unreadable start drops when the end is already past", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  // Start unreadable but the end says it is over — not upcoming.
+  assert.deepEqual(
+    upcomingEvents(
+      [{ name: "Over", startAt: null, endAt: "2026-08-17T22:00:00Z" }],
+      now,
+    ),
+    [],
+  );
+  // Start unreadable, end still ahead — kept, and sorted after the dated one.
+  assert.deepEqual(
+    upcomingEvents(
+      [
+        {
+          name: "Undated but running",
+          startAt: "",
+          endAt: "2026-08-19T02:00:00Z",
+        },
+        { name: "Dated", startAt: "2026-08-18T20:00:00Z" },
+      ],
+      now,
+    ).map((e) => e.name),
+    ["Dated", "Undated but running"],
+  );
+  // Neither field readable — kept, as before.
+  assert.deepEqual(
+    upcomingEvents([{ name: "Unknown", startAt: null, endAt: null }], now).map(
+      (e) => e.name,
+    ),
+    ["Unknown"],
+  );
+});
+
+test("upcomingEvents: empty / null input yields an empty list", () => {
+  const now = new Date("2026-08-18T19:00:00Z");
+  assert.deepEqual(upcomingEvents([], now), []);
+  assert.deepEqual(upcomingEvents(null, now), []);
 });
 
 test("daysOut counts calendar days in the event's own timezone", () => {

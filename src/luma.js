@@ -1,9 +1,9 @@
 // Flow 3 (Add a community Luma event): URL normalization, event-page
 // extraction, and calendar dedupe matching. The same calendar-page parse
-// also feeds Home's next-event card (date/time, venue, RSVP count, days
-// out). Pure string in / object out — the network read lives at the
-// backend.js seam, so all of this is testable against fixtures
-// (docs/adr/0004-credential-free-luma-handoff.md).
+// also feeds Home's next-event card and the Events page (date/time, venue,
+// RSVP count, days out). Pure string in / object out — the network read
+// lives at the backend.js seam, so all of this is testable against
+// fixtures (docs/adr/0004-credential-free-luma-handoff.md).
 //
 // Extraction chain, most stable first: schema.org JSON-LD (Luma serves it
 // for search rich-results), OpenGraph tags, then the embedded __NEXT_DATA__
@@ -305,6 +305,29 @@ export function nextUpcoming(events, now = new Date()) {
       })
       .sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt))[0] ?? null
   );
+}
+
+// Every entry that hasn't ended yet, soonest first — the Events page's
+// full list, where nextUpcoming is the Home card's single pick. Same
+// not-ended rule; entries with no readable start can't be ordered, so
+// they go last rather than being dropped — unless their end says they
+// are already over. `now` is injectable for tests.
+export function upcomingEvents(events, now = new Date()) {
+  const t = +now;
+  return (events ?? [])
+    .filter((e) => {
+      const start = Date.parse(e?.startAt ?? "");
+      const end = Date.parse(e?.endAt ?? "");
+      if (Number.isNaN(start)) return Number.isNaN(end) ? true : end > t;
+      return (Number.isNaN(end) ? start : end) > t;
+    })
+    .sort((a, b) => {
+      const sa = Date.parse(a?.startAt ?? "");
+      const sb = Date.parse(b?.startAt ?? "");
+      if (Number.isNaN(sa)) return Number.isNaN(sb) ? 0 : 1;
+      if (Number.isNaN(sb)) return -1;
+      return sa - sb;
+    });
 }
 
 // Whole calendar days until the start, in the event's own timezone — the

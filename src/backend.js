@@ -125,20 +125,20 @@ export async function fetchEventPreview(url) {
 }
 
 // Upcoming events embedded in the group calendar's public page — the
-// best-effort dedupe read, and the one read Home's next-event card makes
-// (one GET per Home entry). Throws when the page can't be fetched and
-// resolves null when its structure isn't recognized; the screens render
-// both as "couldn't read" — and never block the add.
+// best-effort dedupe read, and the read behind Home's next-event card and
+// the Events page (one GET per screen entry). Throws when the page can't be
+// fetched and resolves null when its structure isn't recognized; the screens
+// render both as "couldn't read" — and never block the add.
 export async function fetchCalendarEvents() {
   return parseCalendarEvents(await fetchLumaPage(calendarUrl()));
 }
 
-// Last successful calendar read, cached for Home's next-event card: a
-// venue-door cold start on bad wifi shows the last known event (marked as
-// such) rather than nothing. Same localStorage approach as the add queue.
-// The list is cached, not the pick — selection runs against the current
-// clock at render time, so a stale cache can never show a past event as
-// upcoming.
+// Last successful calendar read, cached for Home's next-event card and the
+// Events page: a venue-door cold start on bad wifi shows the last known
+// events (marked as such) rather than nothing. Same localStorage approach as
+// the add queue. The list is cached, not the pick — selection runs against
+// the current clock at render time, so a stale cache can never show a past
+// event as upcoming.
 const CALENDAR_CACHE_KEY = "bgn.calendar.v1";
 
 export function loadCalendarCache() {

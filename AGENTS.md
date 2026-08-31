@@ -48,7 +48,11 @@ in localStorage (`bgn.calendar.v1`) so a venue-door cold start on bad
 wifi shows the last known event, marked as such. RSVPs render only when
 the public surface carries them; the capacity tile is omitted — the
 surface carries no capacity number (`ticket_count` mirrors
-`guest_count`), so it would have to be faked. The agent flow renders as
+`guest_count`), so it would have to be faked. The card is tappable and
+opens the Events page — a separate scrollable list of ALL upcoming events
+from the same read + cache, one fresh GET per page entry, same honest
+stale/empty states (captain rejected expand-in-place on the card;
+`docs/adr/0008-events-page.md`). The agent flow renders as
 a stub; the batch dupe check uses the same empty roster stub. Screen 3
 (scan) is deliberately unbuilt: README open question 1 was answered no
 (captain decision, 2026-08-18 — batch paste is enough), so it stays

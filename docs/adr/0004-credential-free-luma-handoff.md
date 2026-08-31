@@ -84,9 +84,10 @@ Luma's own UI:
 
 - The swap points live in `src/backend.js`, mirroring the ADR 0002 pattern:
   `handOffLuma()` is the single swap point for the add mechanism and
-  `fetchCalendarEvents()` for the calendar read — which now serves two
-  readers, this flow's dedupe check and Home's next-event card; a funded API
-  upgrade replaces those functions only, without touching either screen.
+  `fetchCalendarEvents()` for the calendar read — which serves every
+  calendar reader in the app (this flow's dedupe check, Home's next-event
+  card, the Events page); a funded API upgrade replaces those functions
+  only, without touching any screen.
   Parsing is pure and fixture-tested in `src/luma.js`.
 - Two captain-confirmed facts are encoded in `src/backend.js`: the group's
   calendar is the Luma calendar `cal-v6H3Jm84BrwuOYb` (public slug

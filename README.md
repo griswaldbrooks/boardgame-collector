@@ -34,7 +34,7 @@ The prototype renders inside an iPhone bezel (`ios-frame.jsx`). The bezel is sca
 
 ## Screens / Views
 
-There are six screens plus a shared confirmation. Navigation is a single stack: Home is the root, every other screen pushes on top of it and has a **Cancel** action in the header returning to Home.
+The screens are the rows of the header table below, plus a shared confirmation. Navigation is a single stack: Home is the root, every other screen pushes on top of it and has a **Cancel** action in the header returning to Home.
 
 ### Shared: Header
 
@@ -50,6 +50,7 @@ Per-screen header values:
 | Screen | Kicker | Title | Action |
 |---|---|---|---|
 | Home | `Wednesday crew` | `Home` | — |
+| Events | `Community calendar` | `Upcoming events` | `Cancel` |
 | Add to list | `Mailing list` | `Add members` | `Cancel` |
 | Drain | `Mailing list` | `Finish the adds` | `Cancel` |
 | Update | `App update` | `Update the app` | `Cancel` |
@@ -118,9 +119,9 @@ Row labels (shown to the user, not the pre-fill):
 
 1. **Update card** — only rendered when a newer release is on offer. Same styling as an action card, ⬆️ tile with the Message flow's blue accent: title `Update ready — v<x.y.z>` over sub `Download and install the new version`. Taps to the Update screen. The check itself is anonymous, throttled, and silent on failure (`docs/adr/0007-in-app-self-updater.md`).
 
-2. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it.
-   - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `Today` / `Tomorrow` / `<n> days out`, counted in the event's own timezone and hidden when the start can't be read.
-   - Two lines, 14px `#444`: the date and time range (`Wednesday, Aug 5 · 6:00–9:00 pm`; the end time drops when it is missing or the event runs overnight) then the venue (`Cambridge Public Library, Lecture Hall`).
+2. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it. The whole card is tappable and opens the Events page (§1b) — a chevron in the title row advertises it; the expand-in-place alternative was considered and rejected (`docs/adr/0008-events-page.md`).
+   - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `Today` / `Tomorrow` / `<n> days out`, counted in the event's own timezone and hidden when the start can't be read — then the `›` chevron (`#C3BCB1`).
+   - Lines, 14px `#444`: the event's name, the date and time range (`Wednesday, Aug 5 · 6:00–9:00 pm`; the end time drops when it is missing or the event runs overnight), then the venue (`Cambridge Public Library, Lecture Hall`). Each drops out when the calendar doesn't carry it.
    - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **RSVPs**, only when the public calendar carries the count and the event doesn't hide it, then **On the list**, which waits on a member-count source of truth (the roster stub is empty, so it doesn't render yet). There is no **Capacity** stat: the public surface carries no capacity number, so the tile is omitted rather than faked — the prototype's 34/50/412 were placeholders.
    - States, in the lines' place: spinner + `Pulling next event…` on a cold start, `No upcoming events on the calendar.` when the calendar has none, `Couldn't reach the calendar.` when the read fails or its page no longer parses. The last successful read is cached on the device (`bgn.calendar.v1`), so a venue-door cold start on bad wifi shows the last known event instead of nothing — marked `Last known — pulled <n> min ago` while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails. Never unmarked stale data; a failed read never overwrites the cache or claims the calendar is empty.
 
@@ -145,6 +146,18 @@ Row labels (shown to the user, not the pre-fill):
    - `Today` — 4 people added after the Somerville meetup
    - `Mon` — Reminder sent — 412 members
    - `Jul 24` — Added "Chess in the Park" to the calendar
+
+### 1b. Events
+
+**Purpose:** the full upcoming list behind Home's next-event card, which taps through here (captain decision — a separate scrollable page, not expand-in-place on the card; `docs/adr/0008-events-page.md`).
+
+**Layout:** vertical stack, `gap 14px`, scrollable. Every event the calendar read returns that hasn't ended yet, soonest first — one card each, same card styling as Home's event card:
+
+- Title row: event name (15px, weight 700, `#222`; `Untitled event` when the calendar doesn't carry one) left; the same days-out pill as Home (`Today` / `Tomorrow` / `<n> days out`), hidden when the start can't be read.
+- Lines, 14px `#444`: the date and time range, the venue, then `<n> RSVPs` — only when the public surface carries the count and the event doesn't hide it (same rule as Home; no capacity anywhere it's absent).
+- An entry whose start can't be read sorts last rather than disappearing — unless its end date says it is already over.
+
+**Source and states:** the same credential-free read and device cache as Home's card (`fetchCalendarEvents()` / `bgn.calendar.v1`), one fresh read per page entry. The cached list renders instantly; states match the card's honesty — `Last known — pulled <n> min ago` above the list while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails, `Pulling events…` with a spinner when there is no cache yet, `Couldn't reach the calendar.` when there is no cache and the read fails, and `No upcoming events on the calendar.` when the read succeeds with an empty list. A failed read never overwrites the cache or claims the calendar is empty.
 
 ### 2. Add to mailing list
 
@@ -290,7 +303,7 @@ Copy per outcome:
 
 ## Interactions & Behavior
 
-**Navigation.** Single stack, one `screen` value: `home | add | drain | update | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
+**Navigation.** Single stack, one `screen` value: `home | events | add | drain | update | scan | done | broadcast | luma | contact | agent`. Every non-home screen's header `Cancel` returns to `home`. `Done` offers `Add another` (back to `add`, fields cleared) and `Back to home`. In a real app, back-swipe should mirror `Cancel`.
 
 **Field clearing.** Entering `add` resets email, name, batch, and sets mode to `one`. Entering `broadcast` resets `tpl` to `reminder`, which rebuilds the preview from the template copy and so drops any edited draft. Entering `contact` resets all contact fields (but not the selected tag). Entering `luma` clears the URL. Arriving at `agent` from Home clears the task; arriving from a handoff row sets it to that flow's pre-filled text.
 
@@ -305,7 +318,7 @@ Copy per outcome:
 
 **Missing states to build.** The prototype has no loading, error, or empty states. Production needs:
 - Pending/spinner on every CTA that hits a network.
-- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one, and so is Home's next-event card: their loading, offline, and empty states ship with them, and the card falls back to the last cached read, marked as such (`docs/adr/0004-credential-free-luma-handoff.md`).
+- Failure paths for the flows that do hit a network. Neither the mailing-list add nor the broadcast is one of them — they send nothing themselves; the add queues on-device and cannot fail at capture, and a failed broadcast handoff keeps the confirm step up to retry (`docs/adr/0002-self-serve-join-link.md`, `docs/adr/0005-coordinator-initiated-adds.md`). The Luma preview *is* one, and so are Home's next-event card and the Events page behind it: their loading, offline, and empty states ship with them, and both fall back to the last cached read, marked as such (`docs/adr/0004-credential-free-luma-handoff.md`).
 - Empty state for the recent-activity and agent-queue lists.
 
 **Responsive.** Phone portrait only. If the target is web, cap content at ~420px and center.
