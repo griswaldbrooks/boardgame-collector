@@ -123,7 +123,9 @@ the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
   The art is the group website's 64px badge favicon upscaled (palette-snap
   cleanup → Lanczos → light unsharp; no larger or vector source exists),
   so regen from the committed masters, never from a fresh 64px fetch.
-  Rendered size/mask preview: `docs/icon-preview.png`. The Android Studio
+  Rendered size/mask preview: `docs/icon-preview.png` — its adaptive tiles
+  are cropped to the launcher's visible inner 72/108 viewport, not the full
+  108dp layer, or they understate the on-device size by ~1.5x. The Android Studio
   template vectors `res/drawable/ic_launcher_background.xml` and
   `res/drawable-v24/ic_launcher_foreground.xml` were deleted as unreferenced;
   a `tauri android init` regen restores them harmlessly.
