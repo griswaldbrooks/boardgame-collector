@@ -409,7 +409,7 @@ Prototype state, all local:
 
 ## Assets
 
-No image assets. All iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢 ⬆️) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
+No image assets inside the UI (the launcher/app icon is the group's badge — see AGENTS.md "Build" for how it regenerates). All in-screen iconography is Unicode emoji (📬 📣 🗓️ 📇 🤖 🎲 ✨ 👇 🔒 🔗 ✋ 📝 🗣️ ⏳ ✅ 🏛️ 💰 🎁 🙋 🟢 ⬆️) plus text glyphs (`›` `✓` `◔`). Emoji are a deliberate part of the group's branding — keep them and render with the platform emoji font rather than substituting an icon set.
 
 The prototype loads fonts from Google Fonts:
 `https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap`

@@ -113,6 +113,22 @@ the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
   "does not provide the required capabilities: [JAVA_COMPILER]" unless
   `JAVA_HOME` points at a JDK — the Gradle-provisioned one works:
   `JAVA_HOME=~/.gradle/jdks/eclipse_adoptium-17-amd64-linux.2`.
+- Icons: all app/launcher icons regenerate from committed sources with
+  `npx tauri icon icon-manifest.json`: `app-icon.png` (square master for
+  legacy mipmaps + desktop/iOS), `app-icon-fg.png` (adaptive foreground with
+  the badge pre-scaled into the 66/108 adaptive safe zone — keep
+  `android_fg_scale: 100` in the manifest) and `app-icon-bg.png` (plain
+  off-white). It writes `src-tauri/icons/`, every Android mipmap incl.
+  `ic_launcher_background.png`, and `mipmap-anydpi-v26/ic_launcher.xml`.
+  The art is the group website's 64px badge favicon upscaled (palette-snap
+  cleanup → Lanczos → light unsharp; no larger or vector source exists),
+  so regen from the committed masters, never from a fresh 64px fetch.
+  Rendered size/mask preview: `docs/icon-preview.png` — its adaptive tiles
+  are cropped to the launcher's visible inner 72/108 viewport, not the full
+  108dp layer, or they understate the on-device size by ~1.5x. The Android Studio
+  template vectors `res/drawable/ic_launcher_background.xml` and
+  `res/drawable-v24/ic_launcher_foreground.xml` were deleted as unreferenced;
+  a `tauri android init` regen restores them harmlessly.
 - `src-tauri/gen/android` is generated (`npx tauri android init`) and committed,
   like skydash-app. Six files in it are hand-patched or hand-added, so a regen
   silently clobbers them: `AndroidManifest.xml` (portrait-only per the spec,
