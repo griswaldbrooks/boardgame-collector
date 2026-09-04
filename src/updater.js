@@ -53,6 +53,62 @@ export function decideUpdate(latest, currentVersion) {
   return null;
 }
 
+/* ------------------------- last-check readout ------------------------- */
+// The check is deliberately silent (bad venue wifi must not nag), and that
+// silence made a real failure undiagnosable: the home IP's anonymous GitHub
+// rate limit was exhausted and the app simply never offered anything. So
+// every path now records one plain string, revealed by tapping the version
+// footer (docs/adr/0009). One string, no logging machinery.
+
+export const CHECK_KEY = "bgn.updatecheck.v1";
+
+// The outcome string for a finished check: pass the offer decideUpdate made
+// (or null) along with the release body it read, or the error it threw.
+// No offer has two very different causes — nothing newer, or a newer tag
+// whose bgn-coordinator_<X.Y.Z>_arm64.apk asset is missing or misnamed (the
+// release workflow uploads the asset after it publishes the tag). Reporting
+// both as "up to date" while a newer version is live is the exact silence
+// this readout exists to break, so they are named apart.
+export function checkOutcome({ offer, error, latest, currentVersion } = {}) {
+  if (!error) {
+    if (offer) return "update available";
+    const current = parseTag(`v${currentVersion}`);
+    const released = parseTag(latest?.tag_name);
+    return current && released && isNewer(released, current)
+      ? "release found, no matching APK"
+      : "up to date";
+  }
+  // fetchLatestRelease tags its own timeout: the http plugin's rejection
+  // shape is not ours to depend on, and a timeout reported as "no network"
+  // is exactly the wrong diagnosis this readout exists to prevent.
+  if (error.timedOut || error.name === "AbortError") return "timed out";
+  const status = /^HTTP (\d+)$/.exec(error.message ?? "")?.[1];
+  // Anonymous GitHub answers an exhausted rate limit with 403 (429 under
+  // the newer secondary limits) — the failure that started this.
+  if (!status) return "no network";
+  return status === "403" || status === "429"
+    ? "blocked: rate limit"
+    : `blocked: HTTP ${status}`;
+}
+
+export function recordCheck(outcome, at = Date.now()) {
+  try {
+    localStorage.setItem(CHECK_KEY, JSON.stringify({ at, outcome }));
+  } catch {
+    // A readout is not worth an exception.
+  }
+}
+
+// { at, outcome } from the last check, or null when none has finished.
+export function lastCheck() {
+  try {
+    const rec = JSON.parse(localStorage.getItem(CHECK_KEY));
+    return typeof rec?.outcome === "string" ? rec : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------ orchestration ------------------------------ */
 
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
@@ -80,15 +136,24 @@ export async function fetchLatestRelease() {
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
+  } catch (err) {
+    if (ctrl.signal.aborted)
+      throw Object.assign(new Error("timed out"), { timedOut: true });
+    throw err;
   } finally {
     clearTimeout(timer);
   }
 }
 
-// The offered update ({ version, url }) or null.
+// The offered update ({ version, url }) or null, alongside the release body
+// it was decided from — the readout needs to see a refused release, not just
+// the absence of an offer.
 export async function checkForUpdates(currentVersion) {
   const latest = await fetchLatestRelease();
-  return latest ? decideUpdate(latest, currentVersion) : null;
+  return {
+    latest,
+    offer: latest ? decideUpdate(latest, currentVersion) : null,
+  };
 }
 
 // Download the APK into the app cache dir, reporting (received, total|null)

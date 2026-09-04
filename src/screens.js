@@ -39,10 +39,23 @@ import {
   upcomingEvents,
   daysOutLabel,
 } from "./luma.js";
-import { saveContact, listContacts, rowOf } from "./contacts.js";
+import {
+  saveContact,
+  listContacts,
+  importContacts,
+  rowOf,
+} from "./contacts.js";
 import { addActivity, listActivity, dayLabel } from "./activity.js";
 import { go, back, homeFromDone } from "./router.js";
-import { checkForUpdates, downloadUpdate, installUpdate } from "./updater.js";
+import {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  checkOutcome,
+  recordCheck,
+  lastCheck,
+} from "./updater.js";
+import { readNewestBackup, pickBackup, mergeContacts } from "./backup.js";
 
 const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 
@@ -124,7 +137,10 @@ function backgroundUpdateCheck() {
   if (Date.now() - lastUpdateCheckAt < UPDATE_CHECK_EVERY_MS) return;
   updateChecking = true;
   checkForUpdates(__APP_VERSION__)
-    .then((offer) => {
+    .then(({ offer, latest }) => {
+      recordCheck(
+        checkOutcome({ offer, latest, currentVersion: __APP_VERSION__ }),
+      );
       if (!offer) return;
       updateOffer = offer;
       // Home may have been rebuilt, or left, while the check was in flight;
@@ -134,9 +150,10 @@ function backgroundUpdateCheck() {
         updateSlot.replaceChildren(updateCard());
       }
     })
-    .catch((err) =>
-      console.warn(`[update] check failed: ${err?.message ?? err}`),
-    )
+    .catch((err) => {
+      recordCheck(checkOutcome({ error: err }));
+      console.warn(`[update] check failed: ${err?.message ?? err}`);
+    })
     .finally(() => {
       updateChecking = false;
       lastUpdateCheckAt = Date.now();
@@ -364,6 +381,90 @@ function queueCard() {
   );
 }
 
+// The installed version — same source as the self-updater's current version
+// (__APP_VERSION__, inlined from src-tauri/tauri.conf.json by Vite,
+// docs/adr/0006), one version truth. Tapping it reveals the last update
+// check's outcome (docs/adr/0009) — the fix for a silent check that could
+// not be told apart from "no new release".
+function versionFooter() {
+  const readout = h("div", { class: "app-version-readout" });
+  readout.hidden = true;
+  const line = h(
+    "button",
+    {
+      class: "app-version",
+      type: "button",
+      onclick: () => {
+        const rec = lastCheck();
+        readout.textContent = rec
+          ? `Update check ${new Date(rec.at).toLocaleString()} — ${rec.outcome}`
+          : "Update check — none finished yet";
+        readout.hidden = !readout.hidden;
+      },
+    },
+    `BGN Coordinator v${__APP_VERSION__}`,
+  );
+  return h("div", null, line, readout);
+}
+
+// Restore offer (docs/adr/0009): an empty book plus a backup on disk means
+// this device was probably reinstalled or its data cleared. One prompt, and
+// "Not now" stays quiet for the rest of the session.
+let restoreDeclined = false;
+// The lookup is a synchronous hop across the WebView bridge into a
+// contentResolver query, and Home re-renders on every back-navigation —
+// one look per session is enough, the file on disk does not change under us.
+let restoreFound;
+
+function restoreCard() {
+  if (restoreDeclined || listContacts().length) return null;
+  if (restoreFound === undefined) restoreFound = readNewestBackup();
+  const found = restoreFound;
+  if (!found) return null;
+  // What a restore would actually add: the merge drops entries identical on
+  // everything the coordinator typed, so the file's own length can promise
+  // more than the book will hold. The book is empty here by the guard above.
+  const contacts = mergeContacts([], found.contacts);
+  const n = contacts.length;
+  return h(
+    "div",
+    { class: "card" },
+    h("div", { class: "card-title" }, "Restore your contacts? 📇"),
+    h(
+      "div",
+      { class: "card-body" },
+      `The contact book is empty, but a backup on this device holds ${n} ${
+        n === 1 ? "contact" : "contacts"
+      } (${found.name}). Nothing was sent anywhere — this is the device's own copy.`,
+    ),
+    h(
+      "button",
+      {
+        class: "cta",
+        type: "button",
+        onclick: () => {
+          importContacts(contacts);
+          restoreDeclined = true;
+          render("home");
+        },
+      },
+      `Restore ${n} ${n === 1 ? "contact" : "contacts"}`,
+    ),
+    h(
+      "button",
+      {
+        class: "btn-secondary",
+        type: "button",
+        onclick: () => {
+          restoreDeclined = true;
+          render("home");
+        },
+      },
+      "Not now",
+    ),
+  );
+}
+
 function homeScreen() {
   updateSlot = h("div");
   if (updateOffer) updateSlot.append(updateCard());
@@ -374,6 +475,7 @@ function homeScreen() {
     "Home",
     false,
     updateSlot,
+    restoreCard(),
     nextEventCard(),
     queueCard(),
     // The agent status strip renders only when the agent has work (spec);
@@ -382,10 +484,7 @@ function homeScreen() {
     ACTIONS.map(actionCard),
     sectionLabel("✨ Recent activity"),
     recentCard(),
-    // The installed version — same source as the self-updater's current
-    // version (__APP_VERSION__, inlined from src-tauri/tauri.conf.json by
-    // Vite, docs/adr/0006), one version truth.
-    h("div", { class: "app-version" }, `BGN Coordinator v${__APP_VERSION__}`),
+    versionFooter(),
   );
 }
 
@@ -1589,6 +1688,7 @@ function savedCard() {
 }
 
 function contactScreen() {
+  const saved = h("div", null, savedCard());
   const submit = cta(
     () => (state.cName.trim() ? "Save contact 📇" : "Add a name first"),
     () => state.cName.trim().length > 0,
@@ -1683,7 +1783,45 @@ function contactScreen() {
         }),
     ),
     sectionLabel("Saved contacts"),
-    savedCard(),
+    saved,
+    importRow(() => saved.replaceChildren(savedCard())),
+  );
+}
+
+// The manual half of the backup story (docs/adr/0009): Android's own file
+// picker, for a backup this install can no longer see — after a reinstall
+// the app loses MediaStore ownership of its old files, but the picker still
+// reaches them. Merging only ever adds; nothing in the book is overwritten.
+function importRow(refresh) {
+  const status = h("div", { class: "empty" });
+  status.hidden = true;
+  const say = (text) => {
+    status.textContent = text;
+    status.hidden = false;
+  };
+  return h(
+    "div",
+    null,
+    h(
+      "button",
+      {
+        class: "link-btn",
+        type: "button",
+        onclick: async () => {
+          const contacts = await pickBackup();
+          if (!contacts) return say("No backup file read.");
+          const added = importContacts(contacts);
+          say(
+            added
+              ? `Added ${added} ${added === 1 ? "contact" : "contacts"} from the backup.`
+              : "Nothing new — those contacts are already saved.",
+          );
+          if (added) refresh();
+        },
+      },
+      "Import from a backup file",
+    ),
+    status,
   );
 }
 

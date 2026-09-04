@@ -5,6 +5,9 @@ Date: 2026-08-30
 ## Status
 
 Accepted (captain decision, 2026-08-30 — "option B", building on ADR 0006).
+Extended by ADR 0009 (2026-09-04): each check now records one plain outcome
+string, revealed by tapping Home's version footer. The check itself is
+unchanged and still silent — the swallowed failure below was undiagnosable.
 
 ## Context
 

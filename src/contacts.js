@@ -5,6 +5,8 @@
 // nothing here ever reaches backend.js's share/mail machinery, so the
 // privacy banner's promise holds by construction.
 
+import { writeBackup, mergeContacts } from "./backup.js";
+
 const KEY = "bgn.contacts.v1";
 
 function load() {
@@ -15,12 +17,26 @@ function load() {
   }
 }
 
+function store(contacts) {
+  localStorage.setItem(KEY, JSON.stringify(contacts));
+  // Every change gets a dated copy in shared storage (docs/adr/0009);
+  // fire-and-forget and off the interactive path, so neither a storage
+  // failure nor a slow MediaStore hop ever costs the save.
+  setTimeout(() => writeBackup(contacts), 0);
+}
+
 // Newest first, matching how the saved list renders.
 export function saveContact(c) {
-  localStorage.setItem(
-    KEY,
-    JSON.stringify([{ ...c, ts: Date.now() }, ...load()]),
-  );
+  store([{ ...c, ts: Date.now() }, ...load()]);
+}
+
+// Fold a backup file's entries in (docs/adr/0009). Returns how many were
+// actually added — an import only ever adds (see mergeContacts).
+export function importContacts(incoming) {
+  const before = load();
+  const merged = mergeContacts(before, incoming);
+  store(merged);
+  return merged.length - before.length;
 }
 
 export function listContacts() {

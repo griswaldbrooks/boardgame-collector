@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowOf } from "../src/contacts.js";
+import { parseBackup } from "../src/backup.js";
 
 const store = new Map();
 globalThis.localStorage = {
@@ -82,4 +83,90 @@ test("rowOf: emoji from the tag; second line falls back notes → email → phon
   );
   assert.equal(rowOf({ ...venue, phone: "617-555-0148" }).note, "617-555-0148");
   assert.equal(rowOf(venue).note, "");
+});
+
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
+test("saving a contact writes a backup; a broken bridge never breaks the save", async () => {
+  const files = new Map();
+  globalThis.BgnBackup = {
+    write: (name, json) => (files.set(name, json), null),
+    list: () => JSON.stringify([...files.keys()]),
+    read: (name) => files.get(name) ?? null,
+    remove: (name) => files.delete(name),
+  };
+  store.clear();
+  try {
+    const app = await relaunch();
+    app.saveContact(venue);
+    assert.equal(files.size, 0, "the save does not wait on shared storage");
+    await tick();
+    assert.equal(files.size, 1, "one dated copy in shared storage");
+    const [saved] = JSON.parse([...files.values()][0]);
+    assert.equal(saved.name, "Fixture Venue");
+
+    globalThis.BgnBackup.write = () => {
+      throw new Error("no storage");
+    };
+    assert.doesNotThrow(() => app.saveContact(sponsor));
+    await tick();
+    assert.equal(app.listContacts().length, 2, "the save still landed");
+  } finally {
+    delete globalThis.BgnBackup;
+  }
+});
+
+test("importing a backup only ever adds", async () => {
+  store.clear();
+  const app = await relaunch();
+  app.saveContact(venue);
+  const book = app.listContacts();
+  assert.equal(app.importContacts(book), 0, "the same entries are duplicates");
+  assert.equal(app.importContacts([{ ...sponsor, ts: 1 }]), 1);
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Venue", "Fixture Sponsor"],
+    "the imported entry sorts by its own older timestamp",
+  );
+});
+
+// What the restore card promises is what a restore adds: the merge collapses
+// entries identical on everything the coordinator typed, so a file holding
+// the same contact twice must count as one, not two.
+test("a file with duplicate entries restores as one contact", async () => {
+  store.clear();
+  const app = await relaunch();
+  const file = [
+    { ...venue, ts: 10 },
+    { ...venue, ts: 20 },
+    { ...sponsor, ts: 30 },
+  ];
+  assert.equal(app.importContacts(file), 2, "the duplicate collapses");
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Sponsor", "Fixture Venue"],
+  );
+});
+
+// The picker takes any file, so an entry without a tag could once reach the
+// book and break every later render of the saved list — permanently, there
+// being no delete. parseBackup is the gate both read paths go through.
+test("a file that fails the contact contract never reaches the book", async () => {
+  store.clear();
+  const app = await relaunch();
+  app.saveContact(venue);
+
+  const untagged = { ...sponsor, tag: undefined };
+  assert.equal(
+    parseBackup(JSON.stringify([untagged])),
+    null,
+    "an untagged entry is not a backup",
+  );
+  app.importContacts(parseBackup(JSON.stringify([untagged])));
+
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Venue"],
+  );
+  assert.doesNotThrow(() => app.listContacts().map(rowOf));
 });
