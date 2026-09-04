@@ -118,22 +118,30 @@ class MainActivity : TauriActivity() {
       return null
     }
 
+    private fun insertRow(name: String): Uri? {
+      val values = ContentValues().apply {
+        put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+        put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+        put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+      }
+      return contentResolver.insert(collection(), values)
+    }
+
     @JavascriptInterface
     fun write(name: String, json: String): String? {
       if (!supported()) return "unsupported"
       if (name != File(name).name) return "bad-file-name"
       return try {
-        // A second write in the same minute replaces its file instead of
-        // letting MediaStore invent "name (1).json", which the dated
-        // naming/pruning in src/backup.js would never recognise again.
-        remove(name)
-        val values = ContentValues().apply {
-          put(MediaStore.MediaColumns.DISPLAY_NAME, name)
-          put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
-          put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
-        }
-        val uri = contentResolver.insert(collection(), values) ?: return "insert-failed"
-        contentResolver.openOutputStream(uri)!!.use { it.write(json.toByteArray()) }
+        // A second write in the same minute — a launch write and then a save
+        // — overwrites that row IN PLACE. It must not be deleted first: a
+        // fresh insert would let MediaStore invent "name (1).json", which
+        // the dated naming/pruning in src/backup.js would never recognise
+        // again, and a delete before a confirmed replacement is exactly the
+        // loss this whole feature exists to prevent.
+        val existing = query(name)?.first
+        val uri = existing ?: insertRow(name) ?: return "insert-failed"
+        val mode = if (existing == null) "w" else "wt"
+        contentResolver.openOutputStream(uri, mode)!!.use { it.write(json.toByteArray()) }
         null
       } catch (e: Exception) {
         "write-failed"

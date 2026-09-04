@@ -58,7 +58,12 @@ failure means no backup this time, never a failed or delayed contact save.
 Same posture as the update check. The bridge reports a failed write by
 RETURNING a token rather than throwing, so nothing is pruned until a write
 is confirmed — a full disk must not delete a real backup with nothing
-written to replace it.
+written to replace it. The same rule holds inside the bridge: a second write
+in the same minute overwrites that row in place rather than deleting and
+re-inserting it, so a failed write can never leave the minute with no file
+at all. (The row is reused, not recreated, because a fresh insert under a
+name MediaStore already holds produces "name (1).json" — a name the dated
+pruning would never recognise again.)
 
 **Restore.** A launch with an empty book plus a readable backup on disk raises
 one card on Home offering the newest **readable** file — a kill between
