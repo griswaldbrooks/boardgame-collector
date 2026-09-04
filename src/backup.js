@@ -98,11 +98,16 @@ const countIn = (b, name) => parseBackup(b.read(name))?.length ?? 0;
 // never written: a launch or a clear-out must not push the real backups out
 // of the keep window — the n=0 case of the same rule `prunable` enforces for
 // every smaller book.
+//
+// Nothing is ever pruned except after a CONFIRMED write. The bridge reports
+// failure by returning a token ("unsupported", "insert-failed", ...) rather
+// than throwing, so a full disk would otherwise delete a real backup with
+// nothing written to replace it — precisely the loss this exists to prevent.
 export function writeBackup(contacts) {
   try {
     const b = bridge();
     if (!b || !contacts?.length) return;
-    b.write(backupName(new Date()), JSON.stringify(contacts));
+    if (b.write(backupName(new Date()), JSON.stringify(contacts))) return;
     const names = JSON.parse(b.list());
     for (const name of prunable(names, contacts.length, (n) => countIn(b, n)))
       b.remove(name);

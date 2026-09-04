@@ -178,6 +178,8 @@ function stubBridge(files = new Map(), fail = null) {
     files,
     write(name, json) {
       if (fail === "write") throw new Error("no storage");
+      // MainActivity's Backup.write reports failure by RETURNING a token.
+      if (fail === "insert") return "insert-failed";
       files.set(name, json);
       return null;
     },
@@ -211,6 +213,22 @@ test("a write lands a dated file and prunes past the keep window", async () => {
     [...b.files.keys()].every((n) => FILE_RE.test(n)),
     "only dated files remain",
   );
+});
+
+// The bridge signals a failed write by returning a token, not by throwing,
+// so an unchecked prune would delete a good backup and write nothing.
+test("a failed write prunes nothing", async () => {
+  const names = Array.from({ length: KEEP + 2 }, (_, i) =>
+    backupName(new Date(2026, 0, 1, 0, i)),
+  );
+  const files = new Map(
+    names.map((n) => [n, JSON.stringify([fake("Fixture Venue")])]),
+  );
+  const b = stubBridge(files, "insert");
+  await withBridge(b, ({ writeBackup }) =>
+    assert.doesNotThrow(() => writeBackup([fake("Fixture Door")])),
+  );
+  assert.deepEqual([...b.files.keys()], names, "every backup is still there");
 });
 
 test("an empty book is never written — a wipe must not prune real backups", async () => {

@@ -211,15 +211,33 @@ class MainActivity : TauriActivity() {
     super.onActivityResult(requestCode, resultCode, data)
     if (requestCode != REQ_PICK_BACKUP) return
     val uri = data?.data
-    deliverPicked(
-      if (resultCode != RESULT_OK || uri == null) null
-      else try {
-        contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
-      } catch (e: Exception) {
-        null
-      }
-    )
+    if (resultCode != RESULT_OK || uri == null) {
+      deliverPicked(null)
+      return
+    }
+    // The picker deliberately accepts any file (a backup this install no
+    // longer owns is only reachable through it), so a mis-tapped 50 MB video
+    // is a normal outcome: read off the UI thread and stop at a size no
+    // contact book reaches. Anything bigger, or unreadable, comes back as
+    // null — the same "No backup file read." the coordinator gets on cancel.
+    Thread { deliverPicked(readPicked(uri)) }.start()
   }
+
+  private fun readPicked(uri: Uri): String? =
+    try {
+      contentResolver.openInputStream(uri)?.use { input ->
+        val buf = ByteArray(MAX_PICK_BYTES + 1)
+        var n = 0
+        while (n < buf.size) {
+          val r = input.read(buf, n, buf.size - n)
+          if (r < 0) break
+          n += r
+        }
+        if (n > MAX_PICK_BYTES) null else String(buf, 0, n, Charsets.UTF_8)
+      }
+    } catch (e: Exception) {
+      null
+    }
 
   // Hand the picked file's text (or null for cancelled/unreadable) to the
   // promise src/backup.js parked on window.
@@ -235,5 +253,9 @@ class MainActivity : TauriActivity() {
 
   private companion object {
     const val REQ_PICK_BACKUP = 4021
+
+    // A contact book is kilobytes; this is orders of magnitude of headroom
+    // and still bounds the allocation from an arbitrary picked file.
+    const val MAX_PICK_BYTES = 1 shl 20
   }
 }

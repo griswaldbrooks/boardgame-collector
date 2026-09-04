@@ -52,9 +52,13 @@ app. Nothing is uploaded, no account is involved, no network call is made, and
 Android's cloud backup and device-transfer exclusions stay exactly as they are
 — those keep Google out of the book, and this keeps the coordinator in it.
 
-**Fire-and-forget.** Every backup call is wrapped: no bridge (bare-browser
-dev, older Android) or a storage failure means no backup this time, never a
-failed contact save. Same posture as the update check.
+**Fire-and-forget.** Every backup call is wrapped and runs off the
+interactive path: no bridge (bare-browser dev, older Android) or a storage
+failure means no backup this time, never a failed or delayed contact save.
+Same posture as the update check. The bridge reports a failed write by
+RETURNING a token rather than throwing, so nothing is pruned until a write
+is confirmed — a full disk must not delete a real backup with nothing
+written to replace it.
 
 **Restore.** A launch with an empty book plus a readable backup on disk raises
 one card on Home offering the newest **readable** file — a kill between
@@ -67,7 +71,10 @@ typed, so a file carrying the same contact twice must not promise two. "Not now"
 of the session. There is also an explicit **Import from a backup file** on the
 contacts screen, which opens Android's own document picker — after a reinstall
 MediaStore no longer credits this app with the old files, so the automatic
-offer may not see them while the picker still reaches them.
+offer may not see them while the picker still reaches them. That picker takes
+any file type by necessity, so the result is read on a background thread and
+capped at 1 MiB; a mis-tapped video reads as "No backup file read." rather
+than an ANR.
 
 An import can only **add**: an entry identical to one already in the book is
 dropped, and nothing already in the book is overwritten by the file. A stale
