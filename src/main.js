@@ -10,8 +10,15 @@ import "./styles.css";
 
 import { start } from "./router.js";
 import { render } from "./screens.js";
+import { listContacts } from "./contacts.js";
+import { writeBackup } from "./backup.js";
 
 // Adds queue on this device at the door and wait for the drain screen
 // (ADR 0005), so there is nothing to do at boot — the queue keeps them
 // until the coordinator finishes them in Google Groups' own UI.
 start(render);
+
+// A launch is also a backup point (docs/adr/0009) — a book that was saved
+// before the shared-storage bridge existed still gets its copy on disk.
+// Fire-and-forget, like every other write.
+writeBackup(listContacts());

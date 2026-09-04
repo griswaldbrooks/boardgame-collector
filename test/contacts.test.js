@@ -83,3 +83,43 @@ test("rowOf: emoji from the tag; second line falls back notes → email → phon
   assert.equal(rowOf({ ...venue, phone: "617-555-0148" }).note, "617-555-0148");
   assert.equal(rowOf(venue).note, "");
 });
+
+test("saving a contact writes a backup; a broken bridge never breaks the save", async () => {
+  const files = new Map();
+  globalThis.BgnBackup = {
+    write: (name, json) => (files.set(name, json), null),
+    list: () => JSON.stringify([...files.keys()]),
+    read: (name) => files.get(name) ?? null,
+    remove: (name) => files.delete(name),
+  };
+  store.clear();
+  try {
+    const app = await relaunch();
+    app.saveContact(venue);
+    assert.equal(files.size, 1, "one dated copy in shared storage");
+    const [saved] = JSON.parse([...files.values()][0]);
+    assert.equal(saved.name, "Fixture Venue");
+
+    globalThis.BgnBackup.write = () => {
+      throw new Error("no storage");
+    };
+    assert.doesNotThrow(() => app.saveContact(sponsor));
+    assert.equal(app.listContacts().length, 2, "the save still landed");
+  } finally {
+    delete globalThis.BgnBackup;
+  }
+});
+
+test("importing a backup only ever adds", async () => {
+  store.clear();
+  const app = await relaunch();
+  app.saveContact(venue);
+  const book = app.listContacts();
+  assert.equal(app.importContacts(book), 0, "the same entries are duplicates");
+  assert.equal(app.importContacts([{ ...sponsor, ts: 1 }]), 1);
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Venue", "Fixture Sponsor"],
+    "the imported entry sorts by its own older timestamp",
+  );
+});

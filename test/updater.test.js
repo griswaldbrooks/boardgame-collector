@@ -2,7 +2,15 @@
 // fake repo, fake versions, fake assets; nothing here touches the network.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseTag, isNewer, decideUpdate } from "../src/updater.js";
+import {
+  parseTag,
+  isNewer,
+  decideUpdate,
+  checkOutcome,
+  recordCheck,
+  lastCheck,
+  CHECK_KEY,
+} from "../src/updater.js";
 
 /** A fabricated releases/latest body in the GitHub shape. */
 function release(tag, assetNames = []) {
@@ -89,4 +97,55 @@ test("unreadable input fails closed", () => {
     decideUpdate(release("v0.2.0", [APK("0.2.0")]), "garbage"),
     null,
   );
+});
+
+/* --------------------------- last-check readout --------------------------- */
+// The version-footer readout (docs/adr/0009): one plain string per check
+// path, so a silent failure stops being undiagnosable.
+
+test("checkOutcome names every path in one plain string", () => {
+  assert.equal(
+    checkOutcome({ offer: { version: "9.9.9" } }),
+    "update available",
+  );
+  assert.equal(checkOutcome({ offer: null }), "up to date");
+  assert.equal(checkOutcome({}), "up to date");
+
+  const http = (status) => Object.assign(new Error(`HTTP ${status}`), {});
+  // The failure that started this: anonymous GitHub answers an exhausted
+  // rate limit with 403, and the newer secondary limits with 429.
+  assert.equal(checkOutcome({ error: http(403) }), "blocked: rate limit");
+  assert.equal(checkOutcome({ error: http(429) }), "blocked: rate limit");
+  assert.equal(checkOutcome({ error: http(500) }), "blocked: HTTP 500");
+  assert.equal(checkOutcome({ error: http(404) }), "blocked: HTTP 404");
+
+  const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
+  assert.equal(checkOutcome({ error: abort }), "timed out");
+
+  assert.equal(
+    checkOutcome({ error: new TypeError("Load failed") }),
+    "no network",
+  );
+  assert.equal(checkOutcome({ error: new Error("") }), "no network");
+});
+
+test("the readout round-trips, and unreadable storage is just no readout", () => {
+  const store = new Map();
+  globalThis.localStorage = {
+    getItem: (k) => store.get(k) ?? null,
+    setItem: (k, v) => store.set(k, v),
+  };
+  assert.equal(lastCheck(), null, "nothing recorded yet");
+
+  recordCheck("blocked: rate limit", 1756000000000);
+  assert.deepEqual(lastCheck(), {
+    at: 1756000000000,
+    outcome: "blocked: rate limit",
+  });
+
+  store.set(CHECK_KEY, "not json");
+  assert.equal(lastCheck(), null);
+  delete globalThis.localStorage;
+  assert.doesNotThrow(() => recordCheck("up to date"));
+  assert.equal(lastCheck(), null);
 });

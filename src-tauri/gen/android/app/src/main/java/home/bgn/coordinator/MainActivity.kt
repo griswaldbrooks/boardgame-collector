@@ -1,9 +1,13 @@
 package home.bgn.coordinator
 
 import android.content.ActivityNotFoundException
+import android.content.ContentValues
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.Environment
+import android.provider.MediaStore
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
@@ -11,6 +15,8 @@ import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import java.io.File
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : TauriActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,10 +38,19 @@ class MainActivity : TauriActivity() {
   // bridge; the bridge shares the file through the app's own FileProvider
   // and hands it to Android's installer, whose signature check is the
   // update-integrity guarantee — the app verifies nothing itself.
+  //
+  // The second hand-added bridge is the contact-book backup (docs/adr/0009):
+  // MediaStore writes into Downloads/BGN Coordinator/, which need no
+  // permission on API 29+ and survive an uninstall — the wipe that the
+  // backup exists to answer. Nothing here leaves the device.
   override fun onWebViewCreate(webView: WebView) {
     super.onWebViewCreate(webView)
+    this.webView = webView
     webView.addJavascriptInterface(Installer(), "BgnInstaller")
+    webView.addJavascriptInterface(Backup(), "BgnBackup")
   }
+
+  private var webView: WebView? = null
 
   private inner class Installer {
     // Returns null on success, a short error token otherwise (surfaced on
@@ -62,5 +77,163 @@ class MainActivity : TauriActivity() {
         "no-installer"
       }
     }
+  }
+
+  /* ------------------------- contact-book backup ------------------------- */
+  // Every method is best-effort and returns a value the JS side can ignore:
+  // src/backup.js treats any failure as "no backup this time" rather than
+  // letting it break a contact save.
+  private inner class Backup {
+    // MediaStore's Downloads collection is API 29+; below that a write would
+    // need WRITE_EXTERNAL_STORAGE, which this app deliberately does not ask
+    // for (docs/adr/0009).
+    private fun supported() = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+
+    private val relativePath = "${Environment.DIRECTORY_DOWNLOADS}/BGN Coordinator/"
+
+    private fun collection(): Uri = MediaStore.Downloads.EXTERNAL_CONTENT_URI
+
+    // Rows this app owns in that folder. After a reinstall MediaStore no
+    // longer credits us with the old files, so this can come back empty even
+    // though the files are still on disk — that is what the explicit
+    // file-picker import is for.
+    private fun query(name: String?): Pair<Uri, String>? {
+      val selection = StringBuilder("${MediaStore.MediaColumns.RELATIVE_PATH}=?")
+      val args = mutableListOf(relativePath)
+      if (name != null) {
+        selection.append(" AND ${MediaStore.MediaColumns.DISPLAY_NAME}=?")
+        args.add(name)
+      }
+      contentResolver.query(
+        collection(),
+        arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME),
+        selection.toString(),
+        args.toTypedArray(),
+        "${MediaStore.MediaColumns.DISPLAY_NAME} DESC",
+      )?.use { c ->
+        if (c.moveToFirst()) {
+          return Uri.withAppendedPath(collection(), c.getLong(0).toString()) to c.getString(1)
+        }
+      }
+      return null
+    }
+
+    @JavascriptInterface
+    fun write(name: String, json: String): String? {
+      if (!supported()) return "unsupported"
+      if (name != File(name).name) return "bad-file-name"
+      return try {
+        // A second write in the same minute replaces its file instead of
+        // letting MediaStore invent "name (1).json", which the dated
+        // naming/pruning in src/backup.js would never recognise again.
+        remove(name)
+        val values = ContentValues().apply {
+          put(MediaStore.MediaColumns.DISPLAY_NAME, name)
+          put(MediaStore.MediaColumns.MIME_TYPE, "application/json")
+          put(MediaStore.MediaColumns.RELATIVE_PATH, relativePath)
+        }
+        val uri = contentResolver.insert(collection(), values) ?: return "insert-failed"
+        contentResolver.openOutputStream(uri)!!.use { it.write(json.toByteArray()) }
+        null
+      } catch (e: Exception) {
+        "write-failed"
+      }
+    }
+
+    // JSON array of the backup file names this app can see, newest last is
+    // irrelevant — src/backup.js sorts by the dated name itself.
+    @JavascriptInterface
+    fun list(): String {
+      val names = JSONArray()
+      if (!supported()) return names.toString()
+      try {
+        contentResolver.query(
+          collection(),
+          arrayOf(MediaStore.MediaColumns.DISPLAY_NAME),
+          "${MediaStore.MediaColumns.RELATIVE_PATH}=?",
+          arrayOf(relativePath),
+          null,
+        )?.use { c -> while (c.moveToNext()) names.put(c.getString(0)) }
+      } catch (e: Exception) {
+        // Unreadable collection: no backups as far as the app is concerned.
+      }
+      return names.toString()
+    }
+
+    @JavascriptInterface
+    fun read(name: String): String? {
+      if (!supported() || name != File(name).name) return null
+      return try {
+        val (uri, _) = query(name) ?: return null
+        contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+      } catch (e: Exception) {
+        null
+      }
+    }
+
+    @JavascriptInterface
+    fun remove(name: String): Boolean {
+      if (!supported() || name != File(name).name) return false
+      return try {
+        val (uri, _) = query(name) ?: return false
+        contentResolver.delete(uri, null, null) > 0
+      } catch (e: Exception) {
+        false
+      }
+    }
+
+    // Android's own document picker, so a backup written by a previous
+    // install (whose MediaStore ownership this one no longer has) is still
+    // reachable. The result comes back through deliverPicked().
+    @JavascriptInterface
+    @Suppress("DEPRECATION")
+    fun pick() {
+      runOnUiThread {
+        try {
+          startActivityForResult(
+            Intent(Intent.ACTION_OPEN_DOCUMENT)
+              .addCategory(Intent.CATEGORY_OPENABLE)
+              .setType("*/*"),
+            REQ_PICK_BACKUP,
+          )
+        } catch (e: ActivityNotFoundException) {
+          deliverPicked(null)
+        }
+      }
+    }
+  }
+
+  // startActivityForResult is deprecated in favour of the ActivityResult
+  // APIs, but those need a registration before the activity starts — this
+  // pair is the smaller bridge for one picker.
+  @Suppress("DEPRECATION", "OVERRIDE_DEPRECATION")
+  override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
+    if (requestCode != REQ_PICK_BACKUP) return
+    val uri = data?.data
+    deliverPicked(
+      if (resultCode != RESULT_OK || uri == null) null
+      else try {
+        contentResolver.openInputStream(uri)?.use { it.readBytes().decodeToString() }
+      } catch (e: Exception) {
+        null
+      }
+    )
+  }
+
+  // Hand the picked file's text (or null for cancelled/unreadable) to the
+  // promise src/backup.js parked on window.
+  private fun deliverPicked(text: String?) {
+    val arg = if (text == null) "null" else JSONObject.quote(text)
+    runOnUiThread {
+      webView?.evaluateJavascript(
+        "window.__bgnBackupPicked && window.__bgnBackupPicked($arg)",
+        null,
+      )
+    }
+  }
+
+  private companion object {
+    const val REQ_PICK_BACKUP = 4021
   }
 }

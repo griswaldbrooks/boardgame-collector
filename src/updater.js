@@ -53,6 +53,47 @@ export function decideUpdate(latest, currentVersion) {
   return null;
 }
 
+/* ------------------------- last-check readout ------------------------- */
+// The check is deliberately silent (bad venue wifi must not nag), and that
+// silence made a real failure undiagnosable: the home IP's anonymous GitHub
+// rate limit was exhausted and the app simply never offered anything. So
+// every path now records one plain string, revealed by tapping the version
+// footer (docs/adr/0009). One string, no logging machinery.
+
+export const CHECK_KEY = "bgn.updatecheck.v1";
+
+// The outcome string for a finished check: pass the offer decideUpdate made
+// (or null), or the error it threw.
+export function checkOutcome({ offer, error } = {}) {
+  if (!error) return offer ? "update available" : "up to date";
+  if (error.name === "AbortError") return "timed out";
+  const status = /^HTTP (\d+)$/.exec(error.message ?? "")?.[1];
+  // Anonymous GitHub answers an exhausted rate limit with 403 (429 under
+  // the newer secondary limits) — the failure that started this.
+  if (!status) return "no network";
+  return status === "403" || status === "429"
+    ? "blocked: rate limit"
+    : `blocked: HTTP ${status}`;
+}
+
+export function recordCheck(outcome, at = Date.now()) {
+  try {
+    localStorage.setItem(CHECK_KEY, JSON.stringify({ at, outcome }));
+  } catch {
+    // A readout is not worth an exception.
+  }
+}
+
+// { at, outcome } from the last check, or null when none has finished.
+export function lastCheck() {
+  try {
+    const rec = JSON.parse(localStorage.getItem(CHECK_KEY));
+    return typeof rec?.outcome === "string" ? rec : null;
+  } catch {
+    return null;
+  }
+}
+
 /* ------------------------------ orchestration ------------------------------ */
 
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";

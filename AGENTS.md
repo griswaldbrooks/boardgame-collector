@@ -32,8 +32,15 @@ no API), and roster CSV sync is deliberately NOT built (captain decision,
 roster stub drives the broadcast CTA/kicker and the batch dupe line.
 Flow 4 (save a contact) keeps a local-only contact book in `src/contacts.js`
 (same localStorage approach as the queue; nothing leaves the device — see
-`docs/adr/0003-device-local-contact-book.md`). Flow 3 (add a community Luma
-event) is the credential-free design: read-only GETs of public lu.ma pages
+`docs/adr/0003-device-local-contact-book.md`). Because an uninstall or an
+app-data clear wipes that store (and Android's own backup stays off), every
+change and every launch also writes a dated JSON copy into
+`Downloads/BGN Coordinator/` through the `BgnBackup` MediaStore bridge in
+MainActivity.kt — fire-and-forget, no permission, still nothing off the
+device; an empty book on Home offers a restore from the newest file, and the
+contacts screen has an explicit picker import that can only add
+(`docs/adr/0009-automatic-contact-backup.md`, `src/backup.js`).
+Flow 3 (add a community Luma event) is the credential-free design: read-only GETs of public lu.ma pages
 for preview + best-effort dedupe (`src/luma.js` pure parsers,
 `tauri-plugin-http` scoped to luma.com/lu.ma), and the add itself is a
 handoff into Luma's own Add Event panel — the app never writes anywhere;
@@ -68,7 +75,10 @@ the app cache dir (capability-scoped to that one file), and a
 `JavascriptInterface` in MainActivity.kt hands it to Android's installer
 via FileProvider — Android's own signature check is the integrity story,
 the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
-`src/updater.js` and the `BgnInstaller` bridge.
+`src/updater.js` and the `BgnInstaller` bridge. The check stays silent, but
+every path now records one plain outcome string, revealed by tapping Home's
+version footer (`checkOutcome()`, ADR 0009) — silent failure was
+undiagnosable when the home IP's anonymous GitHub rate limit ran out.
 
 ## Build
 
@@ -77,9 +87,11 @@ the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
   the join-link + broadcast compose logic, the capture/drain queue
   (batching, mark-drained, daily budget), the Luma extraction/dedupe
   chain against fabricated fixtures, the release workflow's version/tag
-  gate run against stubbed `gh`/`git`, and the updater's decide logic
-  (parse/compare, offer/no-offer) against fabricated release bodies —
-  no browser or network needed).
+  gate run against stubbed `gh`/`git`, the updater's decide logic and
+  last-check readout against fabricated release bodies, and the contact
+  backup's naming/pruning/merge against a stubbed storage bridge and
+  fabricated contacts — no browser or network needed, and never real
+  contact data in a fixture).
 - CI: `.github/workflows/ci.yml` (PRs + pushes to main) runs frontend
   lint/format/build/test and host-target `cargo fmt --check` /
   `clippy -- -D warnings` / `cargo check` (installs the Tauri 2 Linux desktop
@@ -138,14 +150,17 @@ the app verifies nothing. Swap points: `LATEST_URL`/`ASSET_RE` in
   (hand-added; excludes everything, incl. the WebView `app_webview` store, from
   cloud backup and Android 12+ device transfer), `MainActivity.kt` (pads
   content by the system-bar insets instead of the generated
-  `enableEdgeToEdge()`, and registers the self-updater's `BgnInstaller`
-  JavascriptInterface from `onWebViewCreate` — the FileProvider already in the
-  manifest serves the cached APK to Android's installer; ADR 0007),
+  `enableEdgeToEdge()`, and registers two JavascriptInterfaces from
+  `onWebViewCreate` — the self-updater's `BgnInstaller`, whose cached APK the
+  manifest's FileProvider serves to Android's installer (ADR 0007), and the
+  contact backup's `BgnBackup` MediaStore bridge with its document-picker
+  result plumbing (ADR 0009)),
   `res/values/themes.xml` (`windowLightStatusBar` for the light page
   background), `app/build.gradle.kts` (release `signingConfigs` block reading
   the keystore from the environment — `docs/adr/0006-release-pipeline.md`),
-  and `app/proguard-rules.pro` (R8 keep rule for the installer bridge's
-  `@JavascriptInterface` methods — release minify strips them otherwise).
+  and `app/proguard-rules.pro` (R8 keep rules for the installer and backup
+  bridges' `@JavascriptInterface` methods — release minify strips them
+  otherwise).
 
 ## Maintaining this file
 

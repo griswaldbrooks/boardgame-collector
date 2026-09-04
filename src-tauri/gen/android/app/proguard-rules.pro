@@ -12,6 +12,11 @@
    @android.webkit.JavascriptInterface <methods>;
 }
 
+# Same for the contact-book backup bridge (MainActivity.Backup, ADR 0009).
+-keepclassmembers class home.bgn.coordinator.MainActivity$Backup {
+   @android.webkit.JavascriptInterface <methods>;
+}
+
 # Uncomment this to preserve the line number information for
 # debugging stack traces.
 #-keepattributes SourceFile,LineNumberTable
