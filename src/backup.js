@@ -49,11 +49,6 @@ export function prunable(names, size, countOf, keep = KEEP) {
 
 const newestFirst = (names) => dated(names).reverse();
 
-// Newest backup file name, or null when there is none.
-export function newestBackup(names) {
-  return newestFirst(names)[0] ?? null;
-}
-
 // A contact's identity for dedupe: everything the coordinator typed. The
 // timestamp is deliberately out — the same contact backed up and re-imported
 // is one contact, not two.

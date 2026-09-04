@@ -137,8 +137,10 @@ function backgroundUpdateCheck() {
   if (Date.now() - lastUpdateCheckAt < UPDATE_CHECK_EVERY_MS) return;
   updateChecking = true;
   checkForUpdates(__APP_VERSION__)
-    .then((offer) => {
-      recordCheck(checkOutcome({ offer }));
+    .then(({ offer, latest }) => {
+      recordCheck(
+        checkOutcome({ offer, latest, currentVersion: __APP_VERSION__ }),
+      );
       if (!offer) return;
       updateOffer = offer;
       // Home may have been rebuilt, or left, while the check was in flight;

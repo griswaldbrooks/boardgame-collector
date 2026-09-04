@@ -75,9 +75,17 @@ backup can never quietly undo an edit made in the app.
 
 **Update-check readout.** `backgroundUpdateCheck` now records one plain string
 and a timestamp in `localStorage` on every path — "update available", "up to
-date", "blocked: rate limit" (GitHub's 403/429), "blocked: HTTP \<n\>", "no
-network", "timed out". Tapping the version footer on Home reveals it. One
-string, no logging machinery, and the check stays as silent as before.
+date", "release found, no matching APK", "blocked: rate limit" (GitHub's
+403/429), "blocked: HTTP \<n\>", "no network", "timed out". Tapping the version
+footer on Home reveals it. One string, no logging machinery, and the check
+stays as silent as before.
+
+The seventh string is a captain decision: `decideUpdate` refuses a strictly
+newer release whose `bgn-coordinator_\<X.Y.Z\>_arm64.apk` asset is missing or
+misnamed — reachable between the release workflow publishing the tag and
+uploading the asset — and reporting that as "up to date" while a newer version
+is live is the same undiagnosable silence the readout exists to break. Only
+the reporting changed; what gets offered and installed is untouched.
 
 ## Consequences
 

@@ -63,9 +63,21 @@ export function decideUpdate(latest, currentVersion) {
 export const CHECK_KEY = "bgn.updatecheck.v1";
 
 // The outcome string for a finished check: pass the offer decideUpdate made
-// (or null), or the error it threw.
-export function checkOutcome({ offer, error } = {}) {
-  if (!error) return offer ? "update available" : "up to date";
+// (or null) along with the release body it read, or the error it threw.
+// No offer has two very different causes — nothing newer, or a newer tag
+// whose bgn-coordinator_<X.Y.Z>_arm64.apk asset is missing or misnamed (the
+// release workflow uploads the asset after it publishes the tag). Reporting
+// both as "up to date" while a newer version is live is the exact silence
+// this readout exists to break, so they are named apart.
+export function checkOutcome({ offer, error, latest, currentVersion } = {}) {
+  if (!error) {
+    if (offer) return "update available";
+    const current = parseTag(`v${currentVersion}`);
+    const released = parseTag(latest?.tag_name);
+    return current && released && isNewer(released, current)
+      ? "release found, no matching APK"
+      : "up to date";
+  }
   // fetchLatestRelease tags its own timeout: the http plugin's rejection
   // shape is not ours to depend on, and a timeout reported as "no network"
   // is exactly the wrong diagnosis this readout exists to prevent.
@@ -133,10 +145,15 @@ export async function fetchLatestRelease() {
   }
 }
 
-// The offered update ({ version, url }) or null.
+// The offered update ({ version, url }) or null, alongside the release body
+// it was decided from — the readout needs to see a refused release, not just
+// the absence of an offer.
 export async function checkForUpdates(currentVersion) {
   const latest = await fetchLatestRelease();
-  return latest ? decideUpdate(latest, currentVersion) : null;
+  return {
+    latest,
+    offer: latest ? decideUpdate(latest, currentVersion) : null,
+  };
 }
 
 // Download the APK into the app cache dir, reporting (received, total|null)

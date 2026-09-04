@@ -10,7 +10,6 @@ import {
   KEEP,
   backupName,
   toPrune,
-  newestBackup,
   prunable,
   mergeContacts,
   parseBackup,
@@ -93,14 +92,6 @@ test("a backup bigger than the book being written is never pruned", () => {
     }),
     [],
   );
-});
-
-test("newestBackup picks the latest dated file, ignoring strangers", () => {
-  const older = backupName(new Date(2026, 8, 4, 9, 0));
-  const newer = backupName(new Date(2026, 8, 4, 21, 30));
-  assert.equal(newestBackup([newer, "zzz.json", older]), newer);
-  assert.equal(newestBackup(["zzz.json"]), null);
-  assert.equal(newestBackup([]), null);
 });
 
 test("merge drops identical entries and keeps the book newest-first", () => {

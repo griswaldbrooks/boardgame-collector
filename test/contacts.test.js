@@ -85,6 +85,8 @@ test("rowOf: emoji from the tag; second line falls back notes → email → phon
   assert.equal(rowOf(venue).note, "");
 });
 
+const tick = () => new Promise((r) => setTimeout(r, 0));
+
 test("saving a contact writes a backup; a broken bridge never breaks the save", async () => {
   const files = new Map();
   globalThis.BgnBackup = {
@@ -97,6 +99,8 @@ test("saving a contact writes a backup; a broken bridge never breaks the save", 
   try {
     const app = await relaunch();
     app.saveContact(venue);
+    assert.equal(files.size, 0, "the save does not wait on shared storage");
+    await tick();
     assert.equal(files.size, 1, "one dated copy in shared storage");
     const [saved] = JSON.parse([...files.values()][0]);
     assert.equal(saved.name, "Fixture Venue");
@@ -105,6 +109,7 @@ test("saving a contact writes a backup; a broken bridge never breaks the save", 
       throw new Error("no storage");
     };
     assert.doesNotThrow(() => app.saveContact(sponsor));
+    await tick();
     assert.equal(app.listContacts().length, 2, "the save still landed");
   } finally {
     delete globalThis.BgnBackup;
@@ -151,7 +156,7 @@ test("a file that fails the contact contract never reaches the book", async () =
   const app = await relaunch();
   app.saveContact(venue);
 
-  const { tag: _tag, ...untagged } = sponsor;
+  const untagged = { ...sponsor, tag: undefined };
   assert.equal(
     parseBackup(JSON.stringify([untagged])),
     null,

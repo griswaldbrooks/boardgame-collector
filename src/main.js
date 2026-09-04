@@ -20,5 +20,6 @@ start(render);
 
 // A launch is also a backup point (docs/adr/0009) — a book that was saved
 // before the shared-storage bridge existed still gets its copy on disk.
-// Fire-and-forget, like every other write.
-writeBackup(listContacts());
+// Fire-and-forget, and past the first frame: the write is a run of blocking
+// JavascriptInterface hops into MediaStore, and Home must paint first.
+setTimeout(() => writeBackup(listContacts()), 0);

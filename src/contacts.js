@@ -20,8 +20,9 @@ function load() {
 function store(contacts) {
   localStorage.setItem(KEY, JSON.stringify(contacts));
   // Every change gets a dated copy in shared storage (docs/adr/0009);
-  // fire-and-forget, so a storage failure never costs the save.
-  writeBackup(contacts);
+  // fire-and-forget and off the interactive path, so neither a storage
+  // failure nor a slow MediaStore hop ever costs the save.
+  setTimeout(() => writeBackup(contacts), 0);
 }
 
 // Newest first, matching how the saved list renders.

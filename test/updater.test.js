@@ -111,6 +111,27 @@ test("checkOutcome names every path in one plain string", () => {
   );
   assert.equal(checkOutcome({ offer: null }), "up to date");
   assert.equal(checkOutcome({}), "up to date");
+  // Nothing newer on the server is genuinely up to date...
+  assert.equal(
+    checkOutcome({
+      offer: null,
+      latest: release("v0.1.0", [APK("0.1.0")]),
+      currentVersion: "0.1.0",
+    }),
+    "up to date",
+  );
+  // ...but a newer tag decideUpdate refused for want of its APK is not: the
+  // workflow publishes the tag before the asset upload lands.
+  const pending = release("v0.2.0", ["source.tar.gz"]);
+  assert.equal(decideUpdate(pending, "0.1.0"), null, "still no offer");
+  assert.equal(
+    checkOutcome({
+      offer: decideUpdate(pending, "0.1.0"),
+      latest: pending,
+      currentVersion: "0.1.0",
+    }),
+    "release found, no matching APK",
+  );
 
   const http = (status) => Object.assign(new Error(`HTTP ${status}`), {});
   // The failure that started this: anonymous GitHub answers an exhausted
