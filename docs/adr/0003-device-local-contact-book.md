@@ -4,7 +4,11 @@ Date: 2026-08-15
 
 ## Status
 
-Accepted (captain decision, 2026-08-15).
+Accepted (captain decision, 2026-08-15). Extended by ADR 0009 (2026-09-04):
+the book is also copied automatically to the device's own
+`Downloads/BGN Coordinator/`, because an uninstall or app-data clear wipes
+the localStorage store below — still on the device, still no server, sync, or
+network, and the Android backup exclusions here stay exactly as they are.
 
 ## Context
 

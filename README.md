@@ -119,19 +119,21 @@ Row labels (shown to the user, not the pre-fill):
 
 1. **Update card** — only rendered when a newer release is on offer. Same styling as an action card, ⬆️ tile with the Message flow's blue accent: title `Update ready — v<x.y.z>` over sub `Download and install the new version`. Taps to the Update screen. The check itself is anonymous, throttled, and silent on failure (`docs/adr/0007-in-app-self-updater.md`).
 
-2. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it. The whole card is tappable and opens the Events page (§1b) — a chevron in the title row advertises it; the expand-in-place alternative was considered and rejected (`docs/adr/0008-events-page.md`).
+2. **Restore card** — only rendered on a launch that finds an empty contact book and a readable backup on the device. Card styling, title `Restore your contacts? 📇` over a body naming how many contacts a restore would actually add and which dated file they came from, then `Restore <n> contact(s)` and `Not now`; declining stays quiet for the rest of the session. The backup is the app's own copy in the phone's `Downloads/BGN Coordinator/` — nothing was sent anywhere (`docs/adr/0009-automatic-contact-backup.md`).
+
+3. **Next event card** — live from the group's public Luma calendar, the same credential-free read flow 3's dedupe uses (`fetchCalendarEvents()` in `src/backend.js`, one GET per Home entry; `docs/adr/0004-credential-free-luma-handoff.md`). It shows the soonest event that has not ended yet; every part degrades on its own when the calendar does not carry it. The whole card is tappable and opens the Events page (§1b) — a chevron in the title row advertises it; the expand-in-place alternative was considered and rejected (`docs/adr/0008-events-page.md`).
    - Title row: `🎲 Next event` (15px, weight 700, `#222`) left; pill right — IBM Plex Mono 11px, `color #B34700`, `background #FFE9D2`, `border 1px solid #FFCFA6`, `border-radius 999px`, `padding 3px 9px`, text `Today` / `Tomorrow` / `<n> days out`, counted in the event's own timezone and hidden when the start can't be read — then the `›` chevron (`#C3BCB1`).
    - Lines, 14px `#444`: the event's name, the date and time range (`Wednesday, Aug 5 · 6:00–9:00 pm`; the end time drops when it is missing or the event runs overnight), then the venue (`Cambridge Public Library, Lecture Hall`). Each drops out when the calendar doesn't carry it.
    - Stat row: `border-top 1px solid #EFEBE3`, `padding-top 10px`, flex row `gap 26px`. Each stat = value (20px, weight 700, `#222`) over label (11px, `#8A8378`): **RSVPs**, only when the public calendar carries the count and the event doesn't hide it, then **On the list**, which waits on a member-count source of truth (the roster stub is empty, so it doesn't render yet). There is no **Capacity** stat: the public surface carries no capacity number, so the tile is omitted rather than faked — the prototype's 34/50/412 were placeholders.
    - States, in the lines' place: spinner + `Pulling next event…` on a cold start, `No upcoming events on the calendar.` when the calendar has none, `Couldn't reach the calendar.` when the read fails or its page no longer parses. The last successful read is cached on the device (`bgn.calendar.v1`), so a venue-door cold start on bad wifi shows the last known event instead of nothing — marked `Last known — pulled <n> min ago` while the read is in flight, `Couldn't reach the calendar — pulled <n> min ago` once it fails. Never unmarked stale data; a failed read never overwrites the cache or claims the calendar is empty.
 
-3. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
+4. **Queued adds card** — only rendered when the local add queue is non-empty. Same styling as an action card, 📥 tile: title `<n> queued add(s) — finish them at home` over sub `Paste them into Google Groups' own Add members`. Taps to the Drain screen (see §2, *Capture mechanism*).
 
-4. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
+5. **Agent status strip** — only rendered when the agent has work. `background #F3F4FD`, `border 1px solid #DDDFF6`, `border-radius 14px`, `padding 13px 15px`. 🤖 at 16px; title 13.5px weight 600 `#2E3168` reading `2 tasks running, 1 waiting on you`; sub 12.5px `#55578F` reading `Agent is working in #coordinators 🟢`. Chevron `#A9ACD8`. Taps to Agent screen (empty task field).
 
-5. **Section label:** `👇 Do a thing`
+6. **Section label:** `👇 Do a thing`
 
-6. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
+7. **Four action cards.** Each: card styling above but `padding 15px 16px`, flex row, `gap 14px`, `min-height 44px`. Left icon tile is `40×40`, `border-radius 11px`, `border 1px solid`, emoji at 19px. Then title (15px, weight 600, `#222`) over subtitle (12.5px, `#7D766B`), then `›` in `#C3BCB1`.
 
    | Emoji | Tile bg / border | Title | Subtitle | Hover border / bg |
    |---|---|---|---|---|
@@ -140,14 +142,14 @@ Row labels (shown to the user, not the pre-fill):
    | 🗓️ | `#EDE6F7` / `#DCCFF0` | Add a community Luma event | Paste a link → our calendar | `#DCCFF0` / `#FDFCFF` |
    | 📇 | `#E3F4EA` / `#BFE3CE` | Save a contact | Venue, sponsor, or vendor — not the list | `#BFE3CE` / `#FBFEFC` |
 
-6. **Section label:** `✨ Recent activity`
+8. **Section label:** `✨ Recent activity`
 
-7. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
+9. **Recent list** — one card, rows separated by `border-top 1px solid #EFEBE3`, each `padding 12px 16px`, flex row `gap 12px`. Left: IBM Plex Mono 11px `#9A9288`, fixed `width 46px`. Right: 13.5px `#444`, `line-height 1.35`.
    - `Today` — 4 people added after the Somerville meetup
    - `Mon` — Reminder sent — 412 members
    - `Jul 24` — Added "Chess in the Park" to the calendar
 
-8. **Version footer** — centered line closing the screen, reading `BGN Coordinator v<x.y.z>`. Same muted mono as the section labels (IBM Plex Mono 10px uppercase, `letter-spacing 0.12em`, `color #9A9288`), not tappable. So a coordinator can confirm which build is on the phone, especially around the self-updater. The number is the app's real version, inlined at build time from `src-tauri/tauri.conf.json` (the release pipeline's source of truth, `docs/adr/0006-release-pipeline.md`) — the same value the updater compares against the latest release, never a second copy.
+10. **Version footer** — centered line closing the screen, reading `BGN Coordinator v<x.y.z>`. Same muted mono as the section labels (IBM Plex Mono 10px uppercase, `letter-spacing 0.12em`, `color #9A9288`). So a coordinator can confirm which build is on the phone, especially around the self-updater. Tapping it toggles the last update-check readout underneath — `Update check <date and time> — <outcome>`, or `Update check — none finished yet` — in the same muted mono, so a check that quietly failed can be told apart from "no new release" (`docs/adr/0009-automatic-contact-backup.md`). The number is the app's real version, inlined at build time from `src-tauri/tauri.conf.json` (the release pipeline's source of truth, `docs/adr/0006-release-pipeline.md`) — the same value the updater compares against the latest release, never a second copy.
 
 ### 1b. Events
 
@@ -261,6 +263,7 @@ Row labels (shown to the user, not the pre-fill):
   - 🏛️ `Dana Whitfield · Cambridge Library` — Books the lecture hall. 3 weeks notice, no food past 8pm.
   - 🎁 `Trident Booksellers` — Lends 6 games per night if we credit them in the recap.
   - 💰 `Marco @ Somerville Brewing` — Covered snacks in June. Ask again in the fall.
+- **Import from a backup file** — link-styled button below the saved list, opening Android's own document picker. For the backup this install can no longer see by itself; the merge only ever adds, never overwrites. A status line under it reads `Added <n> contact(s) from the backup.`, `Nothing new — those contacts are already saved.`, or `No backup file read.` (`docs/adr/0009-automatic-contact-backup.md`).
 
 ### 7. Discord agent
 
@@ -348,7 +351,7 @@ Prototype state, all local:
 - **Mailing list** — member count (412) and the duplicate check still need a source of truth (roster CSV sync is deliberately not built — Google's own duplicate rejection covers dedupe). Adding members programmatically does not: consumer `googlegroups.com` groups have no membership API, so v1 captures adds at the door and the coordinator drains the queue in Google Groups' own owner UI. See `docs/adr/0005-coordinator-initiated-adds.md`.
 - **Event source** — answered: Home's next-event card reads the group's public Luma calendar (`GROUP_CALENDAR` in `src/backend.js`), the same credential-free read as flow 3, for the date/time, venue, and RSVP count. Capacity has no source — that surface carries no capacity number — so the stat is gone rather than faked. See `docs/adr/0004-credential-free-luma-handoff.md`.
 - **Luma** — no integration to build for v1: the metadata and the dedupe both come from read-only GETs of public lu.ma pages, and the add is a handoff into Luma's own panel rather than a write. The group's calendar (`GROUP_CALENDAR` in `src/backend.js`) is the one piece of configuration. See `docs/adr/0004-credential-free-luma-handoff.md`.
-- **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md`.
+- **Contacts** — private store, coordinators-only. v1 ships a device-local store (`src/contacts.js`, same on-device persistence as the add queue): no server, no sync, so the privacy banner's promise holds by construction. A shared store — hosted table or otherwise, and never readable by members — waits on open question 4. See `docs/adr/0003-device-local-contact-book.md` and, for the automatic on-device backup that survives an uninstall, `docs/adr/0009-automatic-contact-backup.md`.
 - **Discord** — bot in the coordinators server; task queue with status; approval callbacks for anything that emails or spends.
 - **Recent activity** — an append-only log of coordinator actions, shown newest-first with relative day labels (`Today`, `Mon`, `Jul 24`).
 
