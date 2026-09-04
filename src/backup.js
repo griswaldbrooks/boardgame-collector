@@ -36,9 +36,22 @@ export function toPrune(names, keep = KEEP) {
   return dated(names).slice(0, -keep);
 }
 
+// Of those, the ones actually safe to delete (captain decision, ADR 0009):
+// a backup holding MORE contacts than the book being written survives past
+// the keep window. Without that, a data clear followed by "Not now" and a
+// handful of saves rotates the whole pre-wipe book off the device — the
+// exact incident this feature exists to prevent. `countOf` reads a backup's
+// contact count (0 when it is unreadable, so junk still gets cleaned up);
+// only the window's leftovers are ever asked about.
+export function prunable(names, size, countOf, keep = KEEP) {
+  return toPrune(names, keep).filter((n) => countOf(n) <= size);
+}
+
+const newestFirst = (names) => dated(names).reverse();
+
 // Newest backup file name, or null when there is none.
 export function newestBackup(names) {
-  return dated(names).pop() ?? null;
+  return newestFirst(names)[0] ?? null;
 }
 
 // A contact's identity for dedupe: everything the coordinator typed. The
@@ -84,30 +97,38 @@ export function parseBackup(text) {
 
 const bridge = () => globalThis.BgnBackup ?? null;
 
+const countIn = (b, name) => parseBackup(b.read(name))?.length ?? 0;
+
 // Write a dated copy and prune the old ones. Never throws. An empty book is
 // never written: a launch or a clear-out must not push the real backups out
-// of the keep window.
+// of the keep window — the n=0 case of the same rule `prunable` enforces for
+// every smaller book.
 export function writeBackup(contacts) {
   try {
     const b = bridge();
     if (!b || !contacts?.length) return;
     b.write(backupName(new Date()), JSON.stringify(contacts));
-    for (const name of toPrune(JSON.parse(b.list()))) b.remove(name);
+    const names = JSON.parse(b.list());
+    for (const name of prunable(names, contacts.length, (n) => countIn(b, n)))
+      b.remove(name);
   } catch {
     // Shared storage unavailable — a contact save must not care.
   }
 }
 
-// The newest backup on disk as { name, contacts }, or null. Used for the
-// restore offer on a launch with an empty book.
+// The newest READABLE backup on disk as { name, contacts }, or null. A kill
+// between MediaStore's insert and the stream write leaves a zero-byte file
+// that is newest by name, and that moment is a wipe-adjacent one — so walk
+// back through the older copies rather than dropping the offer entirely.
 export function readNewestBackup() {
   try {
     const b = bridge();
     if (!b) return null;
-    const name = newestBackup(JSON.parse(b.list()));
-    if (!name) return null;
-    const contacts = parseBackup(b.read(name));
-    return contacts?.length ? { name, contacts } : null;
+    for (const name of newestFirst(JSON.parse(b.list()))) {
+      const contacts = parseBackup(b.read(name));
+      if (contacts?.length) return { name, contacts };
+    }
+    return null;
   } catch {
     return null;
   }

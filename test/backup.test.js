@@ -11,6 +11,7 @@ import {
   backupName,
   toPrune,
   newestBackup,
+  prunable,
   mergeContacts,
   parseBackup,
 } from "../src/backup.js";
@@ -64,6 +65,34 @@ test("pruning never touches files that are not ours", () => {
   const prune = toPrune([...others, ...mine]);
   assert.deepEqual(prune, mine.slice(0, 2));
   for (const name of others) assert.ok(!prune.includes(name));
+});
+
+// The keep window alone rotates a big pre-wipe book off the device once the
+// coordinator declines the restore and keeps saving (ADR 0009 retention rule).
+test("a backup bigger than the book being written is never pruned", () => {
+  const names = Array.from({ length: 8 }, (_, i) =>
+    backupName(new Date(2026, 8, 4, 9, i)),
+  );
+  const big = names[0]; // the pre-wipe book, oldest and outside the window
+  const countOf = (n) => (n === big ? 20 : 1);
+  assert.deepEqual(
+    prunable(names, 1, countOf),
+    toPrune(names).filter((n) => n !== big),
+    "the oversized one survives past the window; the rest still go",
+  );
+  // Same size is not bigger, and an unreadable file (count 0) is still junk.
+  assert.deepEqual(prunable(names, 20, countOf), toPrune(names));
+  assert.deepEqual(
+    prunable(names, 1, () => 0),
+    toPrune(names),
+  );
+  // Nothing outside the window means nothing is read at all.
+  assert.deepEqual(
+    prunable(names.slice(0, KEEP), 1, () => {
+      throw new Error("must not read inside the window");
+    }),
+    [],
+  );
 });
 
 test("newestBackup picks the latest dated file, ignoring strangers", () => {
@@ -236,4 +265,50 @@ test("readNewestBackup returns the latest readable file, or null", async () => {
       ({ readNewestBackup }) => assert.equal(readNewestBackup(), null),
     );
   }
+});
+
+// A kill between MediaStore's insert and the stream write leaves a zero-byte
+// file that is newest by name — at a wipe-adjacent moment, so the offer must
+// fall back rather than vanish.
+test("a truncated newest backup falls back to the older readable one", async () => {
+  const old = backupName(new Date(2026, 0, 1, 0, 0));
+  const truncated = backupName(new Date(2026, 5, 1, 12, 0));
+  const b = stubBridge(
+    new Map([
+      [old, JSON.stringify([fake("Fixture Venue")])],
+      [truncated, ""],
+    ]),
+  );
+  await withBridge(b, ({ readNewestBackup }) => {
+    const found = readNewestBackup();
+    assert.equal(found.name, old);
+    assert.deepEqual(
+      found.contacts.map((c) => c.name),
+      ["Fixture Venue"],
+    );
+  });
+});
+
+// The whole point of the retention rule, through the bridge: a cleared book
+// and a small save must not cost the pre-wipe backup, even from outside the
+// keep window.
+test("a small write never rotates a bigger backup off the device", async () => {
+  const preWipe = backupName(new Date(2020, 0, 1, 0, 0));
+  const book = Array.from({ length: 20 }, (_, i) => fake(`Fixture ${i}`));
+  const smalls = Array.from({ length: KEEP }, (_, i) =>
+    backupName(new Date(2020, 0, 2, 0, i)),
+  );
+  const files = new Map([[preWipe, JSON.stringify(book)]]);
+  for (const n of smalls) files.set(n, JSON.stringify([fake("Fixture Door")]));
+  const b = stubBridge(files);
+
+  await withBridge(b, ({ writeBackup }) => writeBackup([fake("Fixture Door")]));
+
+  assert.ok(b.files.has(preWipe), "the pre-wipe book is still on disk");
+  assert.deepEqual(
+    JSON.parse(b.files.get(preWipe)).map((c) => c.name),
+    book.map((c) => c.name),
+    "and it still holds every contact",
+  );
+  assert.ok(!b.files.has(smalls[0]), "the oldest small copy still rotates out");
 });

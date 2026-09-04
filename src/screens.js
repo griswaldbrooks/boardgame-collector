@@ -55,7 +55,7 @@ import {
   recordCheck,
   lastCheck,
 } from "./updater.js";
-import { readNewestBackup, pickBackup } from "./backup.js";
+import { readNewestBackup, pickBackup, mergeContacts } from "./backup.js";
 
 const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 
@@ -419,7 +419,11 @@ function restoreCard() {
   if (restoreFound === undefined) restoreFound = readNewestBackup();
   const found = restoreFound;
   if (!found) return null;
-  const n = found.contacts.length;
+  // What a restore would actually add: the merge drops entries identical on
+  // everything the coordinator typed, so the file's own length can promise
+  // more than the book will hold. The book is empty here by the guard above.
+  const contacts = mergeContacts([], found.contacts);
+  const n = contacts.length;
   return h(
     "div",
     { class: "card" },
@@ -437,7 +441,7 @@ function restoreCard() {
         class: "cta",
         type: "button",
         onclick: () => {
-          importContacts(found.contacts);
+          importContacts(contacts);
           restoreDeclined = true;
           render("home");
         },

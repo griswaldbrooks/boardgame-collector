@@ -125,6 +125,24 @@ test("importing a backup only ever adds", async () => {
   );
 });
 
+// What the restore card promises is what a restore adds: the merge collapses
+// entries identical on everything the coordinator typed, so a file holding
+// the same contact twice must count as one, not two.
+test("a file with duplicate entries restores as one contact", async () => {
+  store.clear();
+  const app = await relaunch();
+  const file = [
+    { ...venue, ts: 10 },
+    { ...venue, ts: 20 },
+    { ...sponsor, ts: 30 },
+  ];
+  assert.equal(app.importContacts(file), 2, "the duplicate collapses");
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Sponsor", "Fixture Venue"],
+  );
+});
+
 // The picker takes any file, so an entry without a tag could once reach the
 // book and break every later render of the saved list — permanently, there
 // being no delete. parseBackup is the gate both read paths go through.

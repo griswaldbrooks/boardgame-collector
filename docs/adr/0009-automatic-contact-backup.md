@@ -30,8 +30,13 @@ like "no new release".
 **Automatic backup.** On every contact change and on app launch, the app
 writes the whole book as JSON to `Downloads/BGN Coordinator/`, named
 `bgn-contacts-YYYY-MM-DD-HHmm.json`. The newest 5 are kept; older ones are
-pruned after each write. An empty book is never written, so a wipe or a fresh
-install cannot prune the real backups out of the keep window.
+pruned after each write — **except a backup holding more contacts than the
+book being written, which is never pruned** (captain decision). The keep
+window alone was not enough: a data clear, a declined restore, and a handful
+of saves would rotate the whole pre-wipe book off the device, one small write
+at a time — the exact incident this feature exists to prevent. An oversized
+stale file costs a few kilobytes and errs in the safe direction. An empty book
+is never written at all: the n=0 case of the same rule.
 
 The write goes through a `BgnBackup` `JavascriptInterface` in
 `MainActivity.kt`, alongside ADR 0007's `BgnInstaller`. `tauri-plugin-fs`
@@ -52,7 +57,13 @@ dev, older Android) or a storage failure means no backup this time, never a
 failed contact save. Same posture as the update check.
 
 **Restore.** A launch with an empty book plus a readable backup on disk raises
-one card on Home offering the newest file. "Not now" stays quiet for the rest
+one card on Home offering the newest **readable** file — a kill between
+MediaStore's insert and the stream write can leave a zero-byte file that is
+newest by name, so the read walks back through the older copies rather than
+dropping the offer at the moment it is most wanted. The card counts what a
+restore would actually add rather than the file's own length (captain
+decision): the merge drops entries identical on everything the coordinator
+typed, so a file carrying the same contact twice must not promise two. "Not now" stays quiet for the rest
 of the session. There is also an explicit **Import from a backup file** on the
 contacts screen, which opens Android's own document picker — after a reinstall
 MediaStore no longer credits this app with the old files, so the automatic
