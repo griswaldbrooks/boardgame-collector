@@ -10,6 +10,7 @@ import {
   recordCheck,
   lastCheck,
   CHECK_KEY,
+  fetchLatestRelease,
 } from "../src/updater.js";
 
 /** A fabricated releases/latest body in the GitHub shape. */
@@ -121,6 +122,12 @@ test("checkOutcome names every path in one plain string", () => {
 
   const abort = Object.assign(new Error("aborted"), { name: "AbortError" });
   assert.equal(checkOutcome({ error: abort }), "timed out");
+  // The http plugin's rejection shape is not ours to depend on, so the
+  // timeout is flagged by fetchLatestRelease itself.
+  assert.equal(
+    checkOutcome({ error: Object.assign(new Error("x"), { timedOut: true }) }),
+    "timed out",
+  );
 
   assert.equal(
     checkOutcome({ error: new TypeError("Load failed") }),
@@ -148,4 +155,31 @@ test("the readout round-trips, and unreadable storage is just no readout", () =>
   delete globalThis.localStorage;
   assert.doesNotThrow(() => recordCheck("up to date"));
   assert.equal(lastCheck(), null);
+});
+
+// The failure that made this readout necessary was a silent one being
+// misdiagnosed, so the 10s timeout must not depend on the http plugin
+// rejecting with a conventionally-named AbortError — it does not promise to.
+test("a timed-out check reads as timed out whatever the fetch rejects with", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const realFetch = globalThis.fetch;
+  globalThis.window = {};
+  globalThis.fetch = (_url, init) =>
+    new Promise((_resolve, reject) =>
+      init.signal.addEventListener("abort", () =>
+        reject(new Error("request failed")),
+      ),
+    );
+  try {
+    const pending = fetchLatestRelease();
+    t.mock.timers.tick(10_000);
+    const error = await pending.then(
+      () => null,
+      (e) => e,
+    );
+    assert.equal(checkOutcome({ error }), "timed out");
+  } finally {
+    globalThis.fetch = realFetch;
+    delete globalThis.window;
+  }
 });

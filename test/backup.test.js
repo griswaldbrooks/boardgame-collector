@@ -129,6 +129,26 @@ test("parseBackup accepts a contact array and nothing else", () => {
   }
 });
 
+// The picker opens on any file type, so a near-miss must be rejected before
+// it reaches the book: the saved list reads name and tag off every entry.
+test("parseBackup rejects entries missing the name/tag contract", () => {
+  const good = fake("Fixture Venue");
+  for (const bad of [
+    { ...good, tag: undefined },
+    { ...good, tag: 7 },
+    { ...good, name: "" },
+    { ...good, name: 7 },
+  ]) {
+    assert.equal(
+      parseBackup(JSON.stringify([good, bad])),
+      null,
+      `${JSON.stringify(bad)} is not a contact`,
+    );
+  }
+  // ...and a whole file of real entries still reads.
+  assert.equal(parseBackup(JSON.stringify([good, fake("B")]))?.length, 2);
+});
+
 /* --------------------- the bridge, stubbed end to end --------------------- */
 // A stand-in for MainActivity's BgnBackup: an in-memory folder, so the
 // write/prune/read path is exercised without Android.

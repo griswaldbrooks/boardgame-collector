@@ -5,6 +5,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { rowOf } from "../src/contacts.js";
+import { parseBackup } from "../src/backup.js";
 
 const store = new Map();
 globalThis.localStorage = {
@@ -122,4 +123,27 @@ test("importing a backup only ever adds", async () => {
     ["Fixture Venue", "Fixture Sponsor"],
     "the imported entry sorts by its own older timestamp",
   );
+});
+
+// The picker takes any file, so an entry without a tag could once reach the
+// book and break every later render of the saved list — permanently, there
+// being no delete. parseBackup is the gate both read paths go through.
+test("a file that fails the contact contract never reaches the book", async () => {
+  store.clear();
+  const app = await relaunch();
+  app.saveContact(venue);
+
+  const { tag: _tag, ...untagged } = sponsor;
+  assert.equal(
+    parseBackup(JSON.stringify([untagged])),
+    null,
+    "an untagged entry is not a backup",
+  );
+  app.importContacts(parseBackup(JSON.stringify([untagged])));
+
+  assert.deepEqual(
+    app.listContacts().map((c) => c.name),
+    ["Fixture Venue"],
+  );
+  assert.doesNotThrow(() => app.listContacts().map(rowOf));
 });

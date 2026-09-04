@@ -61,13 +61,20 @@ export function mergeContacts(current, incoming) {
   return [...current, ...added].sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
 }
 
+// The contract the saved list renders against (rowOf in contacts.js): a
+// name to show and a tag to take the emoji from, both strings. The picker
+// hands us any file the coordinator taps, so a near-miss — a hand-edited
+// backup with the tag stripped, an unrelated export that happens to carry
+// names — must be rejected here rather than persisted into the book and
+// then written back out over the good backups.
+const isContact = (c) =>
+  typeof c?.name === "string" && c.name !== "" && typeof c.tag === "string";
+
 // A backup file's text -> the contact array, or null when it is not one.
 export function parseBackup(text) {
   try {
     const v = JSON.parse(text);
-    return Array.isArray(v) && v.every((c) => typeof c?.name === "string")
-      ? v
-      : null;
+    return Array.isArray(v) && v.every(isContact) ? v : null;
   } catch {
     return null;
   }

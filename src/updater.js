@@ -66,7 +66,10 @@ export const CHECK_KEY = "bgn.updatecheck.v1";
 // (or null), or the error it threw.
 export function checkOutcome({ offer, error } = {}) {
   if (!error) return offer ? "update available" : "up to date";
-  if (error.name === "AbortError") return "timed out";
+  // fetchLatestRelease tags its own timeout: the http plugin's rejection
+  // shape is not ours to depend on, and a timeout reported as "no network"
+  // is exactly the wrong diagnosis this readout exists to prevent.
+  if (error.timedOut || error.name === "AbortError") return "timed out";
   const status = /^HTTP (\d+)$/.exec(error.message ?? "")?.[1];
   // Anonymous GitHub answers an exhausted rate limit with 403 (429 under
   // the newer secondary limits) — the failure that started this.
@@ -121,6 +124,10 @@ export async function fetchLatestRelease() {
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
+  } catch (err) {
+    if (ctrl.signal.aborted)
+      throw Object.assign(new Error("timed out"), { timedOut: true });
+    throw err;
   } finally {
     clearTimeout(timer);
   }

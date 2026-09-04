@@ -409,10 +409,15 @@ function versionFooter() {
 // this device was probably reinstalled or its data cleared. One prompt, and
 // "Not now" stays quiet for the rest of the session.
 let restoreDeclined = false;
+// The lookup is a synchronous hop across the WebView bridge into a
+// contentResolver query, and Home re-renders on every back-navigation —
+// one look per session is enough, the file on disk does not change under us.
+let restoreFound;
 
 function restoreCard() {
   if (restoreDeclined || listContacts().length) return null;
-  const found = readNewestBackup();
+  if (restoreFound === undefined) restoreFound = readNewestBackup();
+  const found = restoreFound;
   if (!found) return null;
   const n = found.contacts.length;
   return h(
