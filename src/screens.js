@@ -1295,8 +1295,8 @@ function broadcastScreen() {
       !area.value.trim()
         ? "Write something first"
         : count
-          ? `Send to ${count} members`
-          : "Send to the list",
+          ? `Review draft for ${count} members`
+          : "Review mail draft",
     ready,
     () => setConfirming(true),
   );
@@ -1313,7 +1313,7 @@ function broadcastScreen() {
     h(
       "div",
       { class: "card" },
-      h("div", { class: "card-title" }, "Send this message?"),
+      h("div", { class: "card-title" }, "Open this draft?"),
       h(
         "div",
         { class: "card-body" },
@@ -1351,7 +1351,7 @@ function broadcastScreen() {
       sendBtn.disabled = false;
       return;
     }
-    addActivity(`Message sent to ${reach}`);
+    addActivity(`Opened mail draft for ${reach}`);
     go("done", { done: { kind: "message", reach } });
   }
 
@@ -1857,8 +1857,8 @@ const DONE_COPY = {
   // composed mail to the coordinator's mail app, so the body says where the
   // message is rather than claiming a delivery the app can't see.
   message: (d) => [
-    "Message sent",
-    `Your mail app has the message — send it there to reach ${d.reach}. It'll also show up in the group archive.`,
+    "Draft opened in mail app",
+    `The mail-app handoff was accepted. Review and send there to reach ${d.reach}. This app cannot confirm delivery.`,
   ],
   // The app hands the add to Luma's own UI (ADR 0004), so the copy says
   // where things stand rather than claiming the calendar already shows it.
