@@ -107,9 +107,9 @@ test("launch backup and explicit recovery preserve pending data and do not resur
   files.clear();
   store.set(
     "bgn.adds.v1",
-    wrap([{ kind: "one", email: "current@example.org", name: "Current" }])
-      .replace(/^.*"queue":/, "")
-      .slice(0, -1),
+    JSON.stringify([
+      { kind: "one", email: "current@example.org", name: "Current" },
+    ]),
   );
   backupSignups();
   await new Promise((resolve) => setTimeout(resolve, 20));
