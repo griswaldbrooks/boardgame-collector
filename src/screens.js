@@ -11,6 +11,7 @@ import {
   resetLuma,
 } from "./state.js";
 import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
+import { eventDraft, validAttendance } from "./messages.js";
 import {
   enqueue,
   pendingAddresses,
@@ -1244,18 +1245,6 @@ const TEMPLATES = [
   },
 ];
 
-// Preview copy per spec §4, swapped with the selection. Editable before
-// sending (spec production note): the preview card IS a textarea styled as
-// the preview text, so editing needs no mode switch.
-const PREVIEWS = {
-  reminder:
-    "Subject: Wednesday at the Cambridge Library\n\nHi all — we're on for Wed Aug 5, 6–9pm, Lecture Hall. 34 RSVPs so far. Bring a game if you've got a favorite.",
-  announce:
-    "Subject: Next board game night — Aug 5\n\nWe've got the Lecture Hall at Cambridge Public Library, 6–9pm. Free, all levels. RSVP so we know how many tables to set.",
-  recap:
-    "Subject: Last night was a good one\n\nThanks to the 38 of you who came out. Heavy Wingspan energy. Photos below — next up Aug 5.",
-};
-
 // There is no live member count: consumer googlegroups.com groups have no
 // membership API (docs/adr/0002-self-serve-join-link.md). The batch dupe
 // check's local roster is the only count available — an empty stub until the
@@ -1267,10 +1256,30 @@ function broadcastScreen() {
   const count = memberCount();
   const reach = count ? `${count} members` : "the list";
 
+  const cache = loadCalendarCache();
+  const events = Array.isArray(cache?.events) ? cache.events : [];
+  const selection = h("select", { "aria-label": "Event", onchange: regenerate },
+    h("option", { value: "" }, "No event — write a custom draft"),
+    events.map((e, i) => h("option", { value: String(i) }, e.name || e.url || "Untitled event")),
+  );
+  const attendance = h("input", {
+    type: "number", min: "0", step: "1", "aria-label": "Actual attendance",
+    placeholder: "Enter actual attendance", oninput: regenerate,
+  });
+  const attendanceRow = h("label", { class: "stack" }, "Actual attendance (not RSVPs)", attendance);
+  const ready = () => area.value.trim().length > 0 &&
+    (state.tpl !== "recap" || validAttendance(attendance.value));
+  function regenerate() {
+    area.value = eventDraft(state.tpl, events[selection.value], attendance.value);
+    setConfirming(false);
+    grow();
+    refresh();
+  }
+
   const area = h("textarea", {
     class: "preview-area",
     "aria-label": "Preview",
-    value: PREVIEWS[state.tpl],
+    value: "",
     oninput: () => {
       grow();
       submit.update();
@@ -1288,7 +1297,7 @@ function broadcastScreen() {
         : count
           ? `Send to ${count} members`
           : "Send to the list",
-    () => area.value.trim().length > 0,
+    ready,
     () => setConfirming(true),
   );
 
@@ -1328,7 +1337,7 @@ function broadcastScreen() {
     if (sendBtn.disabled) return;
     // The preview stays editable behind the confirm block, so re-check the
     // same emptiness guard the CTA enforces.
-    if (!area.value.trim()) {
+    if (!ready()) {
       setConfirming(false);
       return;
     }
@@ -1360,9 +1369,7 @@ function broadcastScreen() {
         type: "button",
         onclick: () => {
           state.tpl = t.id;
-          area.value = PREVIEWS[t.id]; // spec: preview content swaps with selection
-          grow();
-          refresh();
+          regenerate();
         },
       },
       h("div", { class: "tpl-title" }, t.title),
@@ -1370,6 +1377,7 @@ function broadcastScreen() {
     ),
   );
   function refresh() {
+    attendanceRow.hidden = state.tpl !== "recap";
     tplButtons.forEach((b, i) =>
       b.classList.toggle("tpl-on", TEMPLATES[i].id === state.tpl),
     );
@@ -1386,6 +1394,9 @@ function broadcastScreen() {
     true,
     sectionLabel("Start from"),
     tplButtons,
+    h("label", { class: "stack" }, "Event (last-known calendar — verify details)", selection),
+    h("div", { class: "card-body" }, "Open Events from Home to refresh the calendar. Missing facts are omitted; you can write your own draft."),
+    attendanceRow,
     h(
       "div",
       { class: "card preview-card" },
