@@ -179,22 +179,22 @@ const signupFacts = (queue) =>
       JSON.stringify([addressKey(email), it.name ?? "", it.source ?? ""]),
     ),
   );
-let signupSequence = 0;
 export function writeSignupBackup(queue) {
   try {
     const b = bridge();
     if (!b || !validSignups(queue)) return;
-    const names = JSON.parse(b.list());
-    let name;
-    do {
-      name = `bgn-signups-${Date.now()}-${signupSequence++}.json`;
-    } while (names.includes(name));
+    const names = signupNames(JSON.parse(b.list()));
+    // Logical time keeps saves newest even after clock rollback or a restart.
+    const previousTime = Number(names.at(-1)?.split("-")[2] ?? 0);
+    const time = Math.max(Date.now(), previousTime + 1);
+    const name = `bgn-signups-${time}-0.json`;
     const text = JSON.stringify({ type: "bgn-signups", version: 1, queue });
     if (!parseSignupBackup(text) || b.write(name, text)) return;
     // Readback protects recovery even if a bridge reports a partial write as success.
     if (b.read(name) !== text) return;
     const covered = new Set(signupFacts(queue));
-    for (const old of signupNames([...names, name]).slice(0, -KEEP)) {
+    // Only pre-existing files are candidates; keep this save plus KEEP - 1 old.
+    for (const old of names.slice(0, 1 - KEEP)) {
       const previous = parseSignupBackup(b.read(old));
       if (previous && signupFacts(previous).every((fact) => covered.has(fact)))
         b.remove(old);

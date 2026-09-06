@@ -56,6 +56,105 @@ const button = (text) =>
     (b) => b.textContent === text,
   );
 
+const template = (title) =>
+  [...globalThis.document.querySelectorAll(".tpl-card")].find((b) =>
+    b.textContent.includes(title),
+  );
+
+function selectEvent(window, value) {
+  const select = globalThis.document.querySelector(
+    'select[aria-label="Event"]',
+  );
+  [...select.querySelectorAll("option")].find(
+    (option) => option.value === String(value),
+  ).selected = true;
+  select.dispatchEvent(new window.Event("change"));
+}
+
+function setupEvents() {
+  const window = setup();
+  globalThis.localStorage.setItem(
+    "bgn.calendar.v1",
+    JSON.stringify({
+      events: [
+        { name: "SYNTHETIC A", url: "https://example.org/a" },
+        { name: "SYNTHETIC B", url: "https://example.org/b" },
+      ],
+    }),
+  );
+  go("broadcast");
+  selectEvent(window, 0);
+  return window;
+}
+
+test("attendance is hidden and disabled outside recap despite stack layout", () => {
+  setupEvents();
+  const input = globalThis.document.querySelector(
+    'input[aria-label="Actual attendance"]',
+  );
+  const row = input.parentElement;
+  for (const title of [
+    "Event reminder",
+    "Post-night recap",
+    "New event announced",
+  ]) {
+    template(title).click();
+    const recap = title === "Post-night recap";
+    assert.equal(row.hidden, !recap);
+    assert.equal(
+      row.style.display,
+      recap ? "" : "none",
+      "hidden must override the stack flex display",
+    );
+    assert.equal(input.disabled, !recap);
+    assert.ok(row.classList.contains("stack"), "keep normal recap layout");
+  }
+});
+
+test("irrelevant attendance input cannot replace coordinator draft edits", () => {
+  const window = setupEvents();
+  const input = globalThis.document.querySelector(
+    'input[aria-label="Actual attendance"]',
+  );
+  const area = globalThis.document.querySelector("textarea");
+  for (const title of ["Event reminder", "New event announced"]) {
+    template(title).click();
+    area.value = "SYNTHETIC coordinator edits";
+    area.dispatchEvent(new window.Event("input"));
+    input.value = "12";
+    input.dispatchEvent(new window.Event("input"));
+    assert.equal(area.value, "SYNTHETIC coordinator edits");
+  }
+});
+
+test("changing events requires fresh actual attendance for the next recap", () => {
+  const window = setupEvents();
+  template("Post-night recap").click();
+  const input = globalThis.document.querySelector(
+    'input[aria-label="Actual attendance"]',
+  );
+  const area = globalThis.document.querySelector("textarea");
+  const submit = globalThis.document.querySelector(".cta");
+  input.value = "12";
+  input.dispatchEvent(new window.Event("input"));
+  assert.match(area.value, /SYNTHETIC A[\s\S]*12 attendees/);
+  assert.equal(submit.disabled, false);
+  selectEvent(window, 1);
+  assert.equal(input.value, "", "A's attendance is not a fact about B");
+  assert.doesNotMatch(area.value, /12 attendees/);
+  assert.equal(submit.disabled, true);
+  input.value = "7";
+  input.dispatchEvent(new window.Event("input"));
+  assert.match(area.value, /SYNTHETIC B[\s\S]*7 attendees/);
+  assert.equal(submit.disabled, false);
+  // Changing events while attendance is hidden must clear it too.
+  template("Event reminder").click();
+  selectEvent(window, 0);
+  template("Post-night recap").click();
+  assert.equal(input.value, "");
+  assert.equal(submit.disabled, true);
+});
+
 test("mail handoff receipt and activity do not claim a send", async () => {
   const window = setup();
   const area = globalThis.document.querySelector("textarea");

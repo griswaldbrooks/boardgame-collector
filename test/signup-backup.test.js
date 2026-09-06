@@ -159,6 +159,30 @@ test("launch backup and explicit recovery preserve pending data and do not resur
   files.clear();
 });
 
+for (const existingCount of [1, 5]) {
+  test(`clock rollback preserves and recovers the latest save with ${existingCount} existing snapshots`, (t) => {
+    files.clear();
+    t.after(() => files.clear());
+    t.mock.method(Date, "now", () => 1799999999000);
+    const previous = [{ kind: "one", email: "old@example.org" }];
+    for (let i = 0; i < existingCount; i++)
+      files.set(`bgn-signups-1800000000000-${i}.json`, wrap(previous));
+    const latest = [...previous, { kind: "one", email: "new@example.org" }];
+    writeSignupBackup(latest);
+    assert.ok(
+      [...files.values()].includes(wrap(latest)),
+      "the just-written snapshot must survive pruning",
+    );
+    assert.deepEqual(readNewestSignupBackup().queue, latest);
+    const firstName = readNewestSignupBackup().name;
+    writeSignupBackup([]);
+    assert.deepEqual(readNewestSignupBackup().queue, []);
+    assert.notEqual(readNewestSignupBackup().name, firstName);
+    assert.ok(files.has(firstName), "drain preserves earlier pending data");
+    assert.ok([...files.values()].includes(wrap(latest)));
+  });
+}
+
 const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
 
 test("capture and drain back up versioned pending intents without overwriting recovery", async () => {

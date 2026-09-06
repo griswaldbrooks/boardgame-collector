@@ -1366,7 +1366,13 @@ function broadcastScreen() {
   const events = Array.isArray(cache?.events) ? cache.events : [];
   const selection = h(
     "select",
-    { "aria-label": "Event", onchange: regenerate },
+    {
+      "aria-label": "Event",
+      onchange: () => {
+        attendance.value = "";
+        regenerate();
+      },
+    },
     h("option", { value: "" }, "No event — write a custom draft"),
     events.map((e, i) =>
       h("option", { value: String(i) }, e.name || e.url || "Untitled event"),
@@ -1378,7 +1384,9 @@ function broadcastScreen() {
     step: "1",
     "aria-label": "Actual attendance",
     placeholder: "Enter actual attendance",
-    oninput: regenerate,
+    oninput: () => {
+      if (state.tpl === "recap") regenerate();
+    },
   });
   const attendanceRow = h(
     "label",
@@ -1502,6 +1510,9 @@ function broadcastScreen() {
   );
   function refresh() {
     attendanceRow.hidden = state.tpl !== "recap";
+    // Author-level .stack display overrides the browser's default [hidden].
+    attendanceRow.style.display = attendanceRow.hidden ? "none" : "";
+    attendance.disabled = attendanceRow.hidden;
     tplButtons.forEach((b, i) =>
       b.classList.toggle("tpl-on", TEMPLATES[i].id === state.tpl),
     );
