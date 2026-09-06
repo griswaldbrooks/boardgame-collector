@@ -17,9 +17,13 @@ export function eventDraft(template, event, attendance) {
     event.name,
     formatWhenRange(event.startAt, event.endAt, event.timezone),
     event.venue,
-    Number.isInteger(event.guestCount) && event.guestCount >= 0 && !event.hideRsvp
+    Number.isInteger(event.guestCount) &&
+    event.guestCount >= 0 &&
+    !event.hideRsvp
       ? `${event.guestCount} RSVPs (last-known calendar count).`
       : null,
     event.url,
-  ].filter((line) => line != null).join("\n");
+  ]
+    .filter((line) => line != null)
+    .join("\n");
 }

@@ -28,6 +28,10 @@ test("recap requires actual attendance, never substitutes RSVPs", () => {
   assert.match(eventDraft("recap", event, "0"), /0 attendees/);
   assert.match(eventDraft("recap", event, "12"), /12 attendees/);
   assert.doesNotMatch(eventDraft("recap", event, "12"), /RSVP|photos|next up/i);
-  const sparse = eventDraft("announce", { name: "Only a name", hideRsvp: true, guestCount: 7 });
+  const sparse = eventDraft("announce", {
+    name: "Only a name",
+    hideRsvp: true,
+    guestCount: 7,
+  });
   assert.doesNotMatch(sparse, /undefined|null|Invalid|RSVP|Cambridge/);
 });

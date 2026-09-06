@@ -14,6 +14,7 @@ import { isValidEmail, parseBatch, splitDraft } from "./parse.js";
 import { eventDraft, validAttendance } from "./messages.js";
 import {
   enqueue,
+  importSignups,
   pendingAddresses,
   nextBatch,
   remainingToday,
@@ -56,7 +57,14 @@ import {
   recordCheck,
   lastCheck,
 } from "./updater.js";
-import { readNewestBackup, pickBackup, mergeContacts } from "./backup.js";
+import {
+  readNewestBackup,
+  pickBackup,
+  mergeContacts,
+  readNewestSignupBackup,
+  pickSignupBackup,
+  mergeSignups,
+} from "./backup.js";
 
 const SOURCES = ["At an event", "Discord", "Friend referral", "Website form"];
 
@@ -466,6 +474,99 @@ function restoreCard() {
   );
 }
 
+function signupRestoreScreen() {
+  const preview = h("div", { class: "stack" });
+  function offer(found) {
+    if (!found) {
+      preview.replaceChildren(
+        h(
+          "div",
+          { class: "empty" },
+          "No readable signup backup found. Choose a file from Downloads/BGN Coordinator after a reinstall.",
+        ),
+      );
+      return;
+    }
+    const current = pendingAddresses().map((email) => ({ kind: "one", email }));
+    const merged = mergeSignups(current, found.queue);
+    const n =
+      merged.flatMap((it) => (it.kind === "batch" ? it.emails : [it.email]))
+        .length - current.length;
+    preview.replaceChildren(
+      h(
+        "div",
+        { class: "card-body" },
+        `${found.name}: ${n} new pending ${n === 1 ? "signup" : "signups"}. An older file may include already-completed signups. Check this file before restoring. Current pending entries are kept; contacts are not changed.`,
+      ),
+      h(
+        "pre",
+        { class: "card-body" },
+        found.queue
+          .flatMap((it) => (it.kind === "batch" ? it.emails : [it.email]))
+          .join("\n"),
+      ),
+      n
+        ? h(
+            "button",
+            {
+              class: "cta",
+              type: "button",
+              onclick: () => {
+                try {
+                  const added = importSignups(found.queue);
+                  preview.replaceChildren(
+                    h(
+                      "div",
+                      { class: "card-body" },
+                      `Restored ${added} pending ${added === 1 ? "signup" : "signups"}. Review the queue before adding anyone in Google Groups.`,
+                    ),
+                  );
+                } catch (err) {
+                  preview.append(
+                    h(
+                      "div",
+                      { class: "error" },
+                      `Could not restore: ${err.message}`,
+                    ),
+                  );
+                }
+              },
+            },
+            `Restore ${n} pending ${n === 1 ? "signup" : "signups"}`,
+          )
+        : h(
+            "div",
+            { class: "empty" },
+            "No new pending signups in this snapshot.",
+          ),
+    );
+  }
+  offer(readNewestSignupBackup());
+  return shell(
+    "On-device backups",
+    "Recover pending signups",
+    true,
+    h(
+      "div",
+      { class: "card-body" },
+      "Backups stay in Downloads/BGN Coordinator on this device. Nothing is restored automatically. Files can contain addresses already completed since the backup.",
+    ),
+    preview,
+    h(
+      "button",
+      {
+        class: "btn-secondary",
+        type: "button",
+        onclick: async () => {
+          const queue = await pickSignupBackup();
+          offer(queue ? { name: "Selected backup file", queue } : null);
+        },
+      },
+      "Choose a signup backup file",
+    ),
+  );
+}
+
 function homeScreen() {
   updateSlot = h("div");
   if (updateOffer) updateSlot.append(updateCard());
@@ -479,6 +580,11 @@ function homeScreen() {
     restoreCard(),
     nextEventCard(),
     queueCard(),
+    h(
+      "button",
+      { class: "link-btn", type: "button", onclick: () => go("signupRestore") },
+      "Recover pending signups",
+    ),
     // The agent status strip renders only when the agent has work (spec);
     // the Discord agent isn't connected yet, so there is nothing to show.
     sectionLabel("👇 Do a thing"),
@@ -962,8 +1068,8 @@ function drainScreen() {
       () => setConfirming(true),
     );
 
-    // Clearing the entries is irreversible and this queue is their only
-    // copy, so confirm first — same shape as the broadcast handoff.
+    // Clearing pending entries is deliberate; older backups may still hold
+    // them, but recovery must not automatically resurrect completed signups.
     const confirmBlock = h(
       "div",
       { class: "stack" },
@@ -1258,19 +1364,37 @@ function broadcastScreen() {
 
   const cache = loadCalendarCache();
   const events = Array.isArray(cache?.events) ? cache.events : [];
-  const selection = h("select", { "aria-label": "Event", onchange: regenerate },
+  const selection = h(
+    "select",
+    { "aria-label": "Event", onchange: regenerate },
     h("option", { value: "" }, "No event — write a custom draft"),
-    events.map((e, i) => h("option", { value: String(i) }, e.name || e.url || "Untitled event")),
+    events.map((e, i) =>
+      h("option", { value: String(i) }, e.name || e.url || "Untitled event"),
+    ),
   );
   const attendance = h("input", {
-    type: "number", min: "0", step: "1", "aria-label": "Actual attendance",
-    placeholder: "Enter actual attendance", oninput: regenerate,
+    type: "number",
+    min: "0",
+    step: "1",
+    "aria-label": "Actual attendance",
+    placeholder: "Enter actual attendance",
+    oninput: regenerate,
   });
-  const attendanceRow = h("label", { class: "stack" }, "Actual attendance (not RSVPs)", attendance);
-  const ready = () => area.value.trim().length > 0 &&
+  const attendanceRow = h(
+    "label",
+    { class: "stack" },
+    "Actual attendance (not RSVPs)",
+    attendance,
+  );
+  const ready = () =>
+    area.value.trim().length > 0 &&
     (state.tpl !== "recap" || validAttendance(attendance.value));
   function regenerate() {
-    area.value = eventDraft(state.tpl, events[selection.value], attendance.value);
+    area.value = eventDraft(
+      state.tpl,
+      events[selection.value],
+      attendance.value,
+    );
     setConfirming(false);
     grow();
     refresh();
@@ -1394,8 +1518,17 @@ function broadcastScreen() {
     true,
     sectionLabel("Start from"),
     tplButtons,
-    h("label", { class: "stack" }, "Event (last-known calendar — verify details)", selection),
-    h("div", { class: "card-body" }, "Open Events from Home to refresh the calendar. Missing facts are omitted; you can write your own draft."),
+    h(
+      "label",
+      { class: "stack" },
+      "Event (last-known calendar — verify details)",
+      selection,
+    ),
+    h(
+      "div",
+      { class: "card-body" },
+      "Open Events from Home to refresh the calendar. Missing facts are omitted; you can write your own draft.",
+    ),
     attendanceRow,
     h(
       "div",
@@ -1947,6 +2080,7 @@ const SCREENS = {
   events: eventsScreen,
   add: addScreen,
   drain: drainScreen,
+  signupRestore: signupRestoreScreen,
   update: updateScreen,
   broadcast: broadcastScreen,
   done: doneScreen,
