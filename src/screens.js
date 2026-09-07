@@ -2,6 +2,7 @@
 // (§4), Add a community Luma event (§5), Save a contact (§6), Done (§8).
 
 import { h, header, sectionLabel, cta, chipRow } from "./ui.js";
+import { handoffScreen } from "./handoff-screen.js";
 import {
   state,
   resetAdd,
@@ -88,6 +89,13 @@ export function render(screen, opts) {
 /* ------------------------------ 1. Home ------------------------------ */
 
 const ACTIONS = [
+  {
+    icon: "↗",
+    cls: "action-contact",
+    title: "Send to Meeple",
+    sub: "Preview new signups and private contacts",
+    screen: "meeple",
+  },
   {
     icon: "📬",
     cls: "action-mail",
@@ -1011,7 +1019,31 @@ function drainScreen() {
       );
       return;
     }
-    const batch = nextBatch();
+    let batch;
+    try {
+      batch = nextBatch();
+    } catch {
+      dyn.replaceChildren(
+        h(
+          "p",
+          { role: "alert" },
+          "Unreadable Meeple history; manual drain blocked. Reconcile with host. Nothing cleared.",
+        ),
+      );
+      return;
+    }
+    notice.textContent =
+      "Signups delegated to Meeple stay on this phone but are excluded here. Reconcile on host; never run parallel adds.";
+    if (!batch.length) {
+      dyn.replaceChildren(
+        h(
+          "p",
+          {},
+          "All queued signups are held by Meeple. Check Send to Meeple for outcomes; nothing cleared.",
+        ),
+      );
+      return;
+    }
     const more = pending.length - batch.length;
     const direct = batch.filter((_, i) => !flagged.has(i));
     const invites = batch.filter((_, i) => flagged.has(i));
@@ -1069,7 +1101,12 @@ function drainScreen() {
           class: "cta",
           type: "button",
           onclick: () => {
-            markDrained(batch);
+            try {
+              markDrained(batch);
+            } catch (e) {
+              notice.textContent = e.message;
+              return;
+            }
             flagged.clear();
             addActivity(
               `Drained ${batch.length} ${batch.length === 1 ? "add" : "adds"} in Google Groups`,
@@ -1833,7 +1870,7 @@ function contactScreen() {
       h(
         "div",
         { class: "privacy-banner-body" },
-        "Private to coordinators. Nothing here touches the mailing list or gets emailed.",
+        "Private to coordinators. Nothing here touches the mailing list or gets emailed. Saving stays on-device; Home → Send to Meeple can share selected contacts and notes with Meeple and its model provider for club logistics.",
       ),
     ),
     h(
@@ -2016,6 +2053,7 @@ function doneScreen(opts) {
 }
 
 const SCREENS = {
+  meeple: handoffScreen,
   home: homeScreen,
   events: eventsScreen,
   add: addScreen,
