@@ -166,6 +166,7 @@ export function handoffScreen({
               "div",
               { class: "stack" },
               h("strong", {}, r.name || r.email),
+              h("div", {}, r.email || r.phone || ""),
               h("div", {}, labels[item.status]),
               item.evidence ? h("div", {}, item.evidence) : null,
             );

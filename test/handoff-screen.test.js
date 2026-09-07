@@ -104,6 +104,11 @@ test("preview full fields, explicit selection, receipt distinct from added and r
     /Received — awaiting processing/,
   );
   assert.match(globalThis.document.body.textContent, /NOT added/);
+  assert.match(
+    globalThis.document.body.textContent,
+    /synthetic@example.org/,
+    "receipt must identify the address, not just a potentially shared name",
+  );
   assert.equal(JSON.parse(localStorage.getItem("bgn.adds.v1")).length, 1);
   btn("Refresh outcomes").click();
   await tick();
