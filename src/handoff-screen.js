@@ -36,7 +36,17 @@ export function handoffScreen({
   async function paint() {
     try {
       const state = ledger();
-      const records = await preview();
+      let records = [];
+      let previewError = null;
+      try {
+        records = await preview();
+      } catch (e) {
+        previewError = h(
+          "p",
+          { role: "alert" },
+          `Can't preview local capture: ${e.message} Transfer history and retry remain available.`,
+        );
+      }
       const selected = new Set();
       const endpoint = h("input", {
         class: "input",
@@ -87,6 +97,13 @@ export function handoffScreen({
                 endpoint.value !== localStorage.getItem("bgn.meeple.origin.v1")
               )
                 throw Error("Approve the exact destination first.");
+              if (
+                request === nativeRequest &&
+                !globalThis.window?.__TAURI_INTERNALS__
+              )
+                throw Error(
+                  "Nothing sent: use the installed app with Tailscale connected. No batch saved.",
+                );
               prepare(
                 endpoint.value,
                 records.filter((r) => selected.has(r.id)),
@@ -105,6 +122,7 @@ export function handoffScreen({
           type: "checkbox",
           "aria-label": `Send ${r.kind}: ${r.name || r.email}`,
           onchange: () => {
+            if (check.disabled) return;
             if (check.checked) selected.add(r.id);
             else selected.delete(r.id);
             submit.disabled =
@@ -114,7 +132,7 @@ export function handoffScreen({
               : "Select records to send";
           },
         });
-        check.disabled = !!state.pending;
+        check.disabled = !!state.pending || !!r.error;
         return h(
           "label",
           { class: "card meeple-record" },
@@ -130,8 +148,15 @@ export function handoffScreen({
                 : "Private contact · never enroll",
             ),
             ...Object.entries(r)
-              .filter(([k, v]) => !["id", "kind"].includes(k) && v)
+              .filter(([k, v]) => !["id", "kind", "error"].includes(k) && v)
               .map(([k, v]) => h("div", {}, `${k}: ${v}`)),
+            r.error
+              ? h(
+                  "p",
+                  { role: "alert" },
+                  `Not eligible for handoff: ${r.error} You can send other eligible records; this original stays on the device.`,
+                )
+              : null,
           ),
         );
       });
@@ -220,6 +245,7 @@ export function handoffScreen({
           `${records.length} existing record${records.length === 1 ? "" : "s"} not yet sent`,
         ),
         h("p", {}, "Select up to 100. Nothing uploads automatically."),
+        ...(previewError ? [previewError] : []),
         ...rows,
         submit,
         ...jobs,

@@ -137,7 +137,7 @@ test("storage failure blocks before network; corrupt export fails closed", async
   await assert.rejects(m.preview());
   setup();
   localStorage.setItem("bgn.adds.v1", '[{"kind":"one","email":"invalid"}]');
-  await assert.rejects(m.preview());
+  assert.match((await m.preview())[0].error, /signup email/i);
   setup();
   localStorage.setItem("bgn.handoff.v1", "{}");
   await assert.rejects(m.preview());

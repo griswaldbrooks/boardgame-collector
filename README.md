@@ -3,6 +3,10 @@
 Private, phone-first coordinator tool for Board Game Night WG. Tauri 2 Android
 shell with bundled, framework-free JavaScript; not a PWA or a member-facing app.
 
+The original detailed UI specification is archived in
+[Historical design reference](docs/design-reference.md); it is not the current
+implementation or activation contract.
+
 ## Working flows
 
 - **Add to mailing list:** capture one signup or paste a batch offline. Capture is
@@ -21,6 +25,12 @@ shell with bundled, framework-free JavaScript; not a PWA or a member-facing app.
   sent**. Select up to 100 signups/private contacts and explicitly send to your
   approved private receiver. Requires the installed native app and Tailscale on
   the phone; ordinary browser development can preview but cannot send.
+
+Ineligible records (for example, display-name signup emails or contact notes over
+2,000 characters) remain visible with a reason and a disabled checkbox. Nothing is
+truncated or rewritten; other eligible records remain selectable. Validation
+failure creates no transfer ledger or manual-drain hold. Existing retry and
+receipt controls remain available even when new capture cannot be previewed.
 
 ### Received is not Added
 

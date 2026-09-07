@@ -40,11 +40,47 @@ UI and native request seams. The initial RED runs returned:
 The initial discovery assertions were removed during GREEN refactoring; final
 tests assert behavior, not file existence. No retained production stub.
 
+## PR #20 validation correction (review of `06a897d`)
+
+Both reproduced blockers now have regression coverage before their fixes:
+
+- Initial focused RED (`node --test test/handoff-validation.test.js
+  test/handoff-screen.test.js`): **20 tests, 12 failed, 8 passed**. Eight malformed
+  signup cases lacked the required prepare exception; oversized contact capture
+  hid all four preview rows and removed Retry; corrupt capture hid Retry; known
+  browser refusal incorrectly wrote a pending batch. Log: `/tmp/pr20-validation-red.log`.
+- A second contract RED added Python's NEL/U+0085 whitespace: **13 tests, 1 failed**
+  (`Missing expected exception`). Log: `/tmp/pr20-unicode-red.log`.
+- GREEN focused validation/UI/outbox: **29 passed**. The 12 email cases invoke the
+  actual Python `validate()` via stdin, without a server or database. Covers
+  display names, spaces/tabs/newlines/NEL, multiple `@`, concatenated addresses,
+  ordinary and plus/subdomain addresses, and permitted outer whitespace.
+- `prepare` rejects receiver-ineligible signup emails before any ledger write.
+  Tests assert byte-unchanged source stores, no pending/delegated hold, and
+  unchanged manual-drain eligibility. Capture/parser and receiver validation
+  remain unchanged. An initial test expectation was corrected to preserve the
+  existing manual drain's original casing rather than assume normalization.
+- Per-record preview errors disable only ineligible rows. A real `saveContact()`
+  with 2,001-character notes leaves unrelated valid selection usable. Linkedom
+  additionally exercises existing pending Retry plus receipt Refresh after that
+  save, asserting frozen endpoint/body and retained source bytes. Unreadable
+  capture JSON also cannot replace transfer-history controls.
+- Historical malformed pending bytes retain the old ledger-read rules and safe
+  immutable retry; no automatic discard/rewrite/unlock was introduced. They still
+  require host reconciliation, not blind manual drain. A later rejection cannot
+  prove that an earlier attempt was never received.
+- Known browser unavailability now reports **nothing sent, no batch saved** before
+  prepare, not unknown delivery. Ambiguous network attempts remain immutable.
+- The pre-PR README is archived verbatim, beneath an explicit historical label,
+  in `docs/design-reference.md` and linked from the current README.
+
+All evidence is synthetic; no real phone data, Google, Serve config or signing.
+
 ## Final local gates
 
 - `npm ci`: zero reported vulnerabilities.
 - `npm run lint`, `npm run format:check`, `npm run build`: pass.
-- `npm test`: **126 passed, zero failed**. This includes the real loopback
+- `npm test`: **143 passed, zero failed**. This includes the real loopback
   JS/HTTP/SQLite/CLI integration. Existing mocked-network warnings and Node's
   MockTimers experimental warning are expected test diagnostics, not live calls.
 - `python3 -m unittest discover -s receiver -v`: **9 passed**.
@@ -90,9 +126,13 @@ It blocks all non-loopback requests, seeds only synthetic data, exercises the
 actual Home/preview/select/browser-refusal/retry path, checks 390px layout and
 zero page errors, and closes its isolated browser. Screenshots on the verification
 host: `/tmp/meeple-preview-mobile.png`, `/tmp/meeple-records-mobile.png`,
-`/tmp/meeple-unknown-mobile.png`. The native sending capability is intentionally
-unavailable in that browser, so the observed outcome is unknown/retry, never
-false received/added. Actual sending/status is separately proven by integration.
+`/tmp/meeple-unknown-mobile.png`, `/tmp/meeple-ineligible-mobile.png`.
+The native sending capability is intentionally unavailable in that browser:
+new send is refused before prepare with no ledger. The harness then explicitly
+seeds a synthetic pending batch and invalid capture, proving retry and per-record
+warnings coexist without overflow. This seeded unknown state is not a browser
+network attempt or false received/added. Actual sending/status is separately
+proven by integration.
 
 ## Remaining gates / limitations
 

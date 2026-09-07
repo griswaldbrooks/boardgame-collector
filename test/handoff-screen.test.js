@@ -4,6 +4,7 @@ import { parseHTML } from "linkedom";
 import { render } from "../src/screens.js";
 import * as handoff from "../src/handoff.js";
 import * as ui from "../src/handoff-screen.js";
+import { saveContact } from "../src/contacts.js";
 const origin = "https://synthetic.tailnet.ts.net:9443";
 const tick = () => new Promise((r) => setTimeout(r, 25));
 const btn = (text) =>
@@ -149,4 +150,148 @@ test("manual drain suppresses delegated signups and explains retained originals"
   assert.match(globalThis.document.body.textContent, /Meeple/);
   assert.equal(globalThis.document.querySelector("textarea"), null);
   assert.doesNotMatch(globalThis.document.body.textContent, /This batch · 0/);
+});
+
+function saveIneligibleContact() {
+  saveContact({
+    name: "Synthetic oversized contact",
+    email: "",
+    phone: "",
+    tag: "Venue",
+    notes: "x".repeat(2001),
+  });
+}
+
+test("ineligible capture rows have reasons while unrelated valid selection stays usable", async () => {
+  setup();
+  saveIneligibleContact();
+  const queue = JSON.parse(localStorage.getItem("bgn.adds.v1"));
+  queue.push({ kind: "one", email: "Synthetic Person <bad@example.org>" });
+  localStorage.setItem("bgn.adds.v1", JSON.stringify(queue));
+  const before = [
+    localStorage.getItem("bgn.adds.v1"),
+    localStorage.getItem("bgn.contacts.v1"),
+  ];
+  let calls = 0;
+  globalThis.document.getElementById("app").replaceChildren(
+    ui.handoffScreen({
+      request: async (o, p, body) => {
+        calls++;
+        assert.equal(JSON.parse(body).records.length, 1);
+        assert.equal(
+          JSON.parse(body).records[0].email,
+          "synthetic@example.org",
+        );
+        return { job: "a".repeat(32) };
+      },
+    }),
+  );
+  await tick();
+  const rows = [...globalThis.document.querySelectorAll(".meeple-record")];
+  assert.equal(rows.length, 4);
+  for (const name of ["Synthetic oversized contact", "Synthetic Person"]) {
+    const row = rows.find((r) => r.textContent.includes(name));
+    assert.equal(row.querySelector("input").disabled, true);
+    assert.match(row.textContent, /not eligible/i);
+  }
+  assert.match(globalThis.document.body.textContent, /notes.*2000/i);
+  assert.match(globalThis.document.body.textContent, /signup email/i);
+  assert.equal(localStorage.getItem("bgn.handoff.v1"), null);
+  const check = globalThis.document.querySelector(
+    'input[aria-label="Send signup: Synthetic"]',
+  );
+  assert.equal(check.disabled, false);
+  check.checked = true;
+  check.dispatchEvent(new globalThis.window.Event("change"));
+  btn("Send 1 selected record").click();
+  await tick();
+  assert.equal(calls, 1);
+  assert.deepEqual(
+    [
+      localStorage.getItem("bgn.adds.v1"),
+      localStorage.getItem("bgn.contacts.v1"),
+    ],
+    before,
+  );
+});
+
+test("oversized contact saved after pending does not hide immutable retry or receipt refresh", async () => {
+  setup();
+  const rows = await handoff.preview();
+  handoff.prepare(origin, [rows[1]]);
+  await handoff.send(async () => ({ job: "a".repeat(32) }));
+  handoff.prepare(origin, [rows[0]]);
+  const pending = handoff.ledger().pending;
+  saveIneligibleContact();
+  const before = localStorage.getItem("bgn.contacts.v1");
+  let retries = 0;
+  let refreshes = 0;
+  globalThis.document.getElementById("app").replaceChildren(
+    ui.handoffScreen({
+      request: async (o, p, body) => {
+        if (body) {
+          retries++;
+          assert.deepEqual(
+            [o, p, body],
+            [pending.origin, "/v1/jobs", pending.body],
+          );
+          throw Error("synthetic timeout");
+        }
+        refreshes++;
+        return {
+          job: "a".repeat(32),
+          items: [
+            {
+              id: rows[1].id,
+              status: "stored_contact",
+              evidence: "Synthetic retained receipt",
+            },
+          ],
+        };
+      },
+    }),
+  );
+  await tick();
+  assert.ok(
+    btn("Retry same batch"),
+    "capture preview must not remove pending recovery",
+  );
+  assert.ok(btn("Refresh outcomes"));
+  assert.match(globalThis.document.body.textContent, /notes.*2000/i);
+  btn("Retry same batch").click();
+  await tick();
+  btn("Refresh outcomes").click();
+  await tick();
+  assert.equal(retries, 1);
+  assert.equal(refreshes, 1);
+  assert.deepEqual(handoff.ledger().pending, pending);
+  assert.match(
+    globalThis.document.body.textContent,
+    /Synthetic retained receipt/,
+  );
+  assert.equal(localStorage.getItem("bgn.contacts.v1"), before);
+});
+
+test("unreadable capture store cannot replace pending recovery with a global alert", async () => {
+  setup();
+  handoff.prepare(origin, [(await handoff.preview())[0]]);
+  localStorage.setItem("bgn.contacts.v1", "{");
+  globalThis.document.getElementById("app").replaceChildren(ui.handoffScreen());
+  await tick();
+  assert.ok(btn("Retry same batch"));
+  assert.match(globalThis.document.body.textContent, /can't preview/i);
+});
+
+test("known browser refusal happens before prepare and never claims unknown delivery", async () => {
+  setup();
+  globalThis.document.getElementById("app").replaceChildren(ui.handoffScreen());
+  await tick();
+  const check = globalThis.document.querySelector('input[type="checkbox"]');
+  check.checked = true;
+  check.dispatchEvent(new globalThis.window.Event("change"));
+  btn("Send 1 selected record").click();
+  await tick();
+  assert.equal(localStorage.getItem("bgn.handoff.v1"), null);
+  assert.match(globalThis.document.body.textContent, /installed app/i);
+  assert.doesNotMatch(globalThis.document.body.textContent, /Unknown delivery/);
 });
