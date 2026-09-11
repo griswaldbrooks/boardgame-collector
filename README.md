@@ -21,6 +21,12 @@ implementation or activation contract.
   not enroll anyone, send email or upload anything. Contacts and signup recovery
   use additive, on-device Downloads backups (Android API 29+); Android cloud
   backup remains disabled. Uninstall/app-data clear still removes localStorage.
+- **General notes:** Home → **Take a note** opens a private multiline scratchpad.
+  Save, edit, or delete with inline confirmation; edited notes move to the top.
+  Fresh entry clears unsaved drafts. General notes are never sent to Meeple.
+  Nonempty notes are backed up on changes and launch; an empty list offers restore
+  on Home (Not now lasts this session), and Notes has an add-only file import.
+  See [ADR 0011](docs/adr/0011-general-notes.md) for recovery and storage limits.
 - **Send to Meeple:** Home opens a full preview of existing records **not yet
   sent**. Select up to 100 signups/private contacts and explicitly send to your
   approved private receiver. Requires the installed native app and Tailscale on
@@ -96,6 +102,18 @@ It is **not** native Android/Tailscale/Google proof. It stops its receiver and
 removes its synthetic database. `test/handoff-screen.test.js` exercises selection,
 privacy/full-field preview, retry, outcomes and manual-drain exclusion in linkedom.
 
+### General-notes browser smoke
+
+Start a dedicated server with `npm run dev -- --host 127.0.0.1 --port 4186 --strictPort`,
+then run `python tools/notes-smoke.py` in a Python environment with Playwright and
+Chromium installed. Optional `BGN_SMOKE_URL` and `PLAYWRIGHT_CHROMIUM_EXECUTABLE`
+override the server and browser executable. The script uses only synthetic data,
+stubs external reads and **BgnBackup**, and writes screenshots to
+`/tmp/bgn-notes-evidence`. It verifies 320/390/1280px navigation, CRUD, restore,
+picker parsing, persistence/relaunch backup, failure messages, and no overflow.
+It does not verify Android MediaStore, native document-picker ownership after
+reinstall, or the soft keyboard. Stop the temporary server when finished.
+
 ## Private receiver (explicit activation only)
 
 See [ADR/spec 0010](docs/adr/0010-private-meeple-handoff.md) for the full contract,
@@ -139,7 +157,10 @@ these gates are satisfied. No model/provider/profile grants are changed here.
 
 ## Packaging and design
 
-No version bump or release in this slice. Release pipeline, package identity and
+Version `0.3.4` is prepared in this PR, not released; see
+[release notes](docs/releases/v0.3.4.md). Merging this version bump triggers the
+existing signed-release workflow, so merge/release remains an owner gate.
+Release pipeline, package identity and
 signer continuity remain in [ADR 0006](docs/adr/0006-release-pipeline.md) and
 [ADR 0007](docs/adr/0007-in-app-self-updater.md). Never install a debug-signed APK
 over a kept user installation. See `AGENTS.md` for native build details; physical

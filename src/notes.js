@@ -1,4 +1,4 @@
-// General notes (docs/adr/0010-general-notes.md). A coordinator's scratchpad
+// General notes (docs/adr/0011-general-notes.md). A coordinator's scratchpad
 // for everything the other flows don't own: the venue's setup quirk, the
 // table that needed a second rules copy, the thing to remember for next
 // Wednesday. Device-local only — same persistence approach as the contact
@@ -7,13 +7,14 @@
 // Downloads/BGN Coordinator/ so an uninstall or an app-data clear can't eat
 // it (docs/adr/0009's lesson, applied from day one).
 
-import { writeNotesBackup, mergeNotes } from "./backup.js";
+import { writeNotesBackup, mergeNotes, validNotes } from "./backup.js";
 
 const KEY = "bgn.notes.v1";
 
 function load() {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) ?? [];
+    const notes = JSON.parse(localStorage.getItem(KEY));
+    return validNotes(notes) ? notes : [];
   } catch {
     return [];
   }
@@ -48,9 +49,10 @@ export function editNote(id, raw) {
   const notes = load();
   const i = notes.findIndex((n) => n.id === id);
   if (i < 0) return null;
-  notes[i] = { ...notes[i], text, ts: Date.now() };
-  store(notes);
-  return notes[i];
+  const note = { ...notes[i], text, ts: Date.now() };
+  // Stable timestamp sort still puts this edit first on same-millisecond saves.
+  store([note, ...notes.filter((n) => n.id !== id)]);
+  return note;
 }
 
 export function deleteNote(id) {

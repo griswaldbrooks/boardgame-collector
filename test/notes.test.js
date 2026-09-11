@@ -1,4 +1,4 @@
-// General notes (docs/adr/0010): the scratchpad is device-local, newest
+// General notes (docs/adr/0011): the scratchpad is device-local, newest
 // first, survives kill/relaunch, and gets the signup-style dated backup
 // treatment — monotonic names, readback verification, covered-set pruning.
 // Every note here is fabricated and the shared-storage bridge is a stub, so
@@ -12,6 +12,9 @@ import {
   writeNotesBackup,
   readNewestNotesBackup,
   KEEP,
+  pickNotesBackup,
+  pickBackup,
+  pickSignupBackup,
 } from "../src/backup.js";
 import {
   saveNote,
@@ -19,6 +22,7 @@ import {
   deleteNote,
   listNotes,
   importNotes,
+  backupNotes,
 } from "../src/notes.js";
 
 const store = new Map();
@@ -87,6 +91,37 @@ test("notes store trims, refuses empty, and keeps newest first", () => {
   });
 });
 
+test("malformed local notes cannot break Home or overwrite recovery on launch", () => {
+  reset(bridgeOk);
+  for (const raw of [
+    "{}",
+    "42",
+    '"wrong"',
+    "[null]",
+    '[{"id":"x","text":42}]',
+  ]) {
+    store.set("bgn.notes.v1", raw);
+    assert.deepEqual(listNotes(), []);
+    backupNotes();
+  }
+  assert.equal(noteNames().length, 0);
+});
+
+test("notes imports refuse blank text and invalid timestamps", () => {
+  for (const note of [
+    { id: "x", text: " \n " },
+    { id: "x", text: "ok", ts: -1 },
+    { id: "x", text: "ok", ts: 9e15 },
+  ])
+    assert.equal(parseNotesBackup(wrap([note])), null);
+  assert.equal(
+    parseNotesBackup(
+      '{"type":"bgn-notes","version":1,"notes":[{"id":"x","text":"ok","ts":1e999}]}',
+    ),
+    null,
+  );
+});
+
 test("note ids stay unique across rapid same-millisecond saves", () => {
   reset();
   withClock(1_700_000_000_000, () => {
@@ -124,6 +159,16 @@ test("edit refuses empty, resurfaces the note newest-first, and ignores unknown 
       ["First, revised", "Second"],
     );
     assert.equal(listNotes().length, 2);
+  });
+});
+
+test("a rapid edit resurfaces even when saves share the same millisecond", () => {
+  reset();
+  withClock(1_700_000_000_000, () => {
+    const first = saveNote("SYNTHETIC first");
+    saveNote("SYNTHETIC second");
+    editNote(first.id, "SYNTHETIC revised");
+    assert.equal(listNotes()[0].id, first.id);
   });
 });
 
@@ -277,6 +322,42 @@ test("pruning keeps the newest window and never drops uncovered notes", () => {
     writeNotesBackup([{ id: "c1", text: "same text", ts: 100 }]);
     assert.ok(files.has(preEdit), "uncovered backup must survive");
   });
+});
+
+test("empty launches cannot mask recovery, including legacy empty snapshots", async () => {
+  await new Promise((r) => setTimeout(r, 10));
+  reset(bridgeOk);
+  const old = "bgn-notes-1700000000000-0.json";
+  files.set(old, wrap([{ id: "recover", text: "SYNTHETIC recover", ts: 1 }]));
+  backupNotes();
+  backupNotes();
+  assert.deepEqual(noteNames(), [old]);
+  files.set("bgn-notes-1700000000001-0.json", wrap([]));
+  assert.equal(readNewestNotesBackup().name, old);
+});
+
+test("shared picker cannot steal an outstanding callback across backup types", async () => {
+  reset({ ...bridgeOk, pick() {} });
+  const pending = pickNotesBackup();
+  const callback = globalThis.__bgnBackupPicked;
+  const blockedContact = pickBackup();
+  assert.equal(
+    globalThis.__bgnBackupPicked,
+    callback,
+    "a second picker must not replace the first callback",
+  );
+  assert.equal(await blockedContact, null);
+  assert.equal(await pickSignupBackup(), null);
+  callback(wrap([{ id: "picked", text: "SYNTHETIC picked", ts: 1 }]));
+  assert.equal((await pending)[0].id, "picked");
+  const contact = pickBackup();
+  globalThis.__bgnBackupPicked('[{"name":"SYNTHETIC contact","tag":"Venue"}]');
+  assert.equal((await contact)[0].name, "SYNTHETIC contact");
+  const signup = pickSignupBackup();
+  globalThis.__bgnBackupPicked(
+    '{"type":"bgn-signups","version":1,"queue":[{"kind":"one","email":"synthetic@example.org"}]}',
+  );
+  assert.equal((await signup)[0].email, "synthetic@example.org");
 });
 
 test("readNewestNotesBackup skips unreadable and foreign files", () => {

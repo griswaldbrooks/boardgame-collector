@@ -206,7 +206,7 @@ export function writeSignupBackup(queue) {
 
 // Notes snapshots use their own versioned envelope and names, same as the
 // signup snapshots above: never reuse a name, so even two saves in one
-// millisecond preserve the previous recovery snapshot (docs/adr/0010).
+// millisecond preserve the previous recovery snapshot (docs/adr/0011).
 
 const NOTES_RE = /^bgn-notes-\d{13}-\d+\.json$/;
 
@@ -216,8 +216,9 @@ const validNote = (n) =>
   typeof n.id === "string" &&
   n.id !== "" &&
   typeof n.text === "string" &&
-  n.text !== "" &&
-  (n.ts === undefined || typeof n.ts === "number");
+  n.text.trim() !== "" &&
+  (n.ts === undefined ||
+    (Number.isFinite(n.ts) && n.ts >= 0 && n.ts <= 8.64e15));
 
 export const validNotes = (notes) =>
   Array.isArray(notes) && notes.every(validNote);
@@ -272,7 +273,7 @@ const noteNames = (names) =>
 export function writeNotesBackup(notes) {
   try {
     const b = bridge();
-    if (!b || !validNotes(notes)) return;
+    if (!b || !validNotes(notes) || !notes.length) return;
     const names = noteNames(JSON.parse(b.list()));
     // Logical time keeps saves newest even after clock rollback or a restart.
     const previousTime = Number(names.at(-1)?.split("-")[2] ?? 0);
@@ -304,7 +305,7 @@ export function readNewestNotesBackup() {
     if (!b) return null;
     for (const name of noteNames(JSON.parse(b.list())).reverse()) {
       const notes = parseNotesBackup(b.read(name));
-      if (notes) return { name, notes };
+      if (notes?.length) return { name, notes };
     }
   } catch {
     /* Unavailable storage. */
@@ -371,7 +372,8 @@ export const pickSignupBackup = () => pickBackup(parseSignupBackup);
 export function pickBackup(parse = parseBackup) {
   return new Promise((resolve) => {
     const b = bridge();
-    if (!b?.pick) return resolve(null);
+    // The native picker has one callback shared by contacts, signups and notes.
+    if (!b?.pick || globalThis.__bgnBackupPicked) return resolve(null);
     globalThis.__bgnBackupPicked = (text) => {
       delete globalThis.__bgnBackupPicked;
       resolve(text == null ? null : parse(text));
