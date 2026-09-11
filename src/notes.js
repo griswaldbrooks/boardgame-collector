@@ -11,11 +11,17 @@ import { writeNotesBackup, mergeNotes, validNotes } from "./backup.js";
 
 const KEY = "bgn.notes.v1";
 
-function load() {
+function load(strict = false) {
   try {
-    const notes = JSON.parse(localStorage.getItem(KEY));
-    return validNotes(notes) ? notes : [];
+    const raw = localStorage.getItem(KEY);
+    if (raw === null) return [];
+    const notes = JSON.parse(raw);
+    if (!validNotes(notes)) throw new Error("Invalid notes store");
+    return notes;
   } catch {
+    // Keep Home usable, but never replace unreadable data with a new list.
+    if (strict)
+      throw new Error("Could not read existing notes; nothing changed.");
     return [];
   }
 }
@@ -37,7 +43,7 @@ export function saveNote(raw) {
   if (!text) return null;
   const ts = Date.now();
   const note = { id: newId(ts), text, ts };
-  store([note, ...load()]);
+  store([note, ...load(true)]);
   return note;
 }
 
@@ -46,7 +52,7 @@ export function saveNote(raw) {
 export function editNote(id, raw) {
   const text = String(raw ?? "").trim();
   if (!text) return null;
-  const notes = load();
+  const notes = load(true);
   const i = notes.findIndex((n) => n.id === id);
   if (i < 0) return null;
   const note = { ...notes[i], text, ts: Date.now() };
@@ -56,7 +62,7 @@ export function editNote(id, raw) {
 }
 
 export function deleteNote(id) {
-  const notes = load();
+  const notes = load(true);
   const kept = notes.filter((n) => n.id !== id);
   if (kept.length === notes.length) return false;
   store(kept);
@@ -70,7 +76,7 @@ export function listNotes() {
 // Fold a backup file's notes in (picker import / restore offer). Returns how
 // many were actually added — an import only ever adds (see mergeNotes).
 export function importNotes(incoming) {
-  const before = load();
+  const before = load(true);
   const merged = mergeNotes(before, incoming);
   store(merged);
   return merged.length - before.length;

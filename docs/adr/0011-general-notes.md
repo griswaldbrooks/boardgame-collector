@@ -17,7 +17,9 @@ Saved notes appear newest first; editing preserves the ID, updates the timestamp
 and resurfaces the note. Delete requires an inline **Delete note / Keep note**
 confirmation. Fresh screen entry clears unsaved add/edit drafts, matching the
 other forms. Failed local writes retain the draft or confirmation and never claim
-success.
+success. Refreshing the list after another save/delete/import preserves open edit
+drafts. Malformed or unreadable local data is never overwritten by a mutation;
+Home remains usable, but writes require a readable store.
 
 `src/notes.js` stores `{id, text, ts}` records under `bgn.notes.v1` in localStorage.
 `src/notes-screen.js` owns transient editors, import status, and the session-only

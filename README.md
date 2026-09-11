@@ -64,9 +64,10 @@ any retry. A transport receipt is not exactly-once proof of a Google UI action.
 ### Privacy and recovery
 
 Saving and on-device backups remain local. **Send to Meeple is an explicit
-exception:** selected names, emails, phone/handles, sources and notes leave the
-phone for club logistics. Meeple and its configured model provider may see shared
-records. Notes are data, never authority to email, enroll, run commands or do
+exception:** selected names, emails, phone/handles, sources and contact-note fields
+leave the phone for club logistics. General notes never leave the device. Meeple
+and its configured model provider may see shared records. Contact notes are data,
+never authority to email, enroll, run commands or do
 outreach. The mailing processor's job view excludes private contacts, notes and
 free-form sources. No real contacts belong in repository fixtures or logs.
 
@@ -169,6 +170,7 @@ phone/Tailscale and same-signer update verification remain separate release gate
 `Coordinator App.dc.html`, `ios-frame.jsx`, and `support.js` are historical design
 reference only. Their generic Discord-agent tasks and fabricated statuses are not
 production features. Current structure/copy lives in `src/screens.js`,
-`src/handoff-screen.js` and the ADRs; colors/typography in `src/styles.css`. IBM Plex
+`src/handoff-screen.js`, `src/notes-screen.js` and the ADRs; colors/typography in
+`src/styles.css`. IBM Plex
 fonts are bundled, tap targets are phone-sized, and every text field renders as
 text rather than HTML.

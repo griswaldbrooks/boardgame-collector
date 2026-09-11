@@ -72,7 +72,7 @@ function noteCard(note, refresh) {
             "Save changes",
             (text) => {
               if (!editNote(note.id, text)) throw new Error("Note unavailable");
-              refresh();
+              refresh(note.id);
             },
             show,
           ),
@@ -94,7 +94,7 @@ function noteCard(note, refresh) {
             () => {
               try {
                 deleteNote(note.id);
-                refresh();
+                refresh(note.id);
               } catch {
                 notice.textContent =
                   "Could not delete on this device. The note is still saved; try again.";
@@ -114,11 +114,20 @@ function noteCard(note, refresh) {
 
 export function notesScreen() {
   const list = h("div", { class: "stack" });
-  const refresh = () => {
+  const cards = new Map();
+  const refresh = (savedId) => {
+    // Reuse unchanged cards so another save/import cannot discard edit drafts.
+    cards.delete(savedId);
     const notes = listNotes();
+    const ids = new Set(notes.map((note) => note.id));
+    for (const id of cards.keys()) if (!ids.has(id)) cards.delete(id);
     list.replaceChildren(
       ...(notes.length
-        ? notes.map((note) => noteCard(note, refresh))
+        ? notes.map((note) => {
+            if (!cards.has(note.id))
+              cards.set(note.id, noteCard(note, refresh));
+            return cards.get(note.id);
+          })
         : [
             h(
               "div",

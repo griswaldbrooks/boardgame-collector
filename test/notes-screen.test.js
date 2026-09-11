@@ -157,6 +157,52 @@ test("inline edit resurfaces notes; delete requires confirm and cancel keeps the
   await tick();
 });
 
+test("list refresh preserves other edit drafts across add, edit, delete and import", async (t) => {
+  const { store } = setup(t);
+  store.set(
+    "bgn.notes.v1",
+    JSON.stringify([
+      recovered,
+      { id: "other", text: "SYNTHETIC other", ts: 500 },
+    ]),
+  );
+  go("notes");
+  const first = document.querySelectorAll(".note-card")[0];
+  const other = document.querySelectorAll(".note-card")[1];
+  button("Edit", first).click();
+  const draft = first.querySelector("textarea");
+  draft.value = "SYNTHETIC keep this draft";
+  const checkDraft = () => {
+    assert.equal(draft.isConnected, true, "open draft must remain attached");
+    assert.equal(draft.value, "SYNTHETIC keep this draft");
+  };
+  input("Note", "SYNTHETIC new");
+  button("Save note").click();
+  checkDraft();
+  button("Edit", other).click();
+  const secondDraft = other.querySelector("textarea");
+  secondDraft.value = "SYNTHETIC revised other";
+  secondDraft.dispatchEvent(new window.Event("input"));
+  button("Save changes", other).click();
+  checkDraft();
+  button("Delete").click();
+  button("Delete note").click();
+  checkDraft();
+  button("Import from a backup file").click();
+  globalThis.__bgnBackupPicked(
+    wrap([{ id: "import", text: "SYNTHETIC import", ts: 1 }]),
+  );
+  await tick();
+  checkDraft();
+  draft.dispatchEvent(new window.Event("input"));
+  button("Save changes", first).click();
+  assert.equal(
+    listNotes().find((n) => n.id === recovered.id).text,
+    "SYNTHETIC keep this draft",
+  );
+  await tick();
+});
+
 test("failed local writes keep add/edit drafts and delete confirmation without false success", async (t) => {
   const { store } = setup(t);
   store.set("bgn.notes.v1", JSON.stringify([recovered]));

@@ -107,6 +107,36 @@ test("malformed local notes cannot break Home or overwrite recovery on launch", 
   assert.equal(noteNames().length, 0);
 });
 
+test("mutations refuse unreadable existing notes instead of overwriting them", () => {
+  reset();
+  for (const raw of [
+    "{",
+    "null",
+    "{}",
+    '[{"id":"keep","text":"SYNTHETIC valid"},null]',
+  ]) {
+    store.set("bgn.notes.v1", raw);
+    for (const mutate of [
+      () => saveNote("SYNTHETIC new"),
+      () => editNote("keep", "SYNTHETIC edit"),
+      () => deleteNote("keep"),
+      () => importNotes([{ id: "import", text: "SYNTHETIC import", ts: 1 }]),
+    ]) {
+      assert.throws(mutate, /read/i);
+      assert.equal(store.get("bgn.notes.v1"), raw);
+    }
+  }
+  const getter = localStorage.getItem;
+  localStorage.getItem = () => {
+    throw new Error("SYNTHETIC read failure");
+  };
+  try {
+    assert.throws(() => saveNote("SYNTHETIC new"), /read/i);
+  } finally {
+    localStorage.getItem = getter;
+  }
+});
+
 test("notes imports refuse blank text and invalid timestamps", () => {
   for (const note of [
     { id: "x", text: " \n " },
