@@ -25,9 +25,10 @@ HTTP proxy. Existing HTTP plugin scopes and browser CSP are not widened.
 
 POST JSON: `{version:1, key:<32 hex>, records:[...]}`; max 100 records / 128 KiB.
 Each record has `id` (64 lowercase hex) and `kind` (signup/contact). Signup:
-`email,name,source`; fixed group `bgn-wg` is server-owned. Contact:
-`name,email,phone,tag,notes`; no group or commands. Strings bounded to 2000 chars,
-name/source/tag to 200, email to 254, phone to 100. Unknown fields rejected.
+`email,name,source`; fixed group `bgn-wg` is server-owned — a wire key, not the
+public slug ([slug correction](#public-group-slug-correction--2026-09-29)).
+Contact: `name,email,phone,tag,notes`; no group or commands. Strings bounded to
+2000 chars, name/source/tag to 200, email to 254, phone to 100. Unknown fields rejected.
 Phone identity = SHA-256 of deterministic normalized semantic fields, independent
 of timestamps/order; identical captures intentionally collapse. This works for
 legacy records and restored files without destructive migration or a timestamp
