@@ -158,8 +158,8 @@ these gates are satisfied. No model/provider/profile grants are changed here.
 
 ## Packaging and design
 
-Version `0.3.4` is prepared in this PR, not released; see
-[release notes](docs/releases/v0.3.4.md). Merging this version bump triggers the
+Version `0.3.7` is prepared in this PR, not released; see
+[release notes](docs/releases/v0.3.7.md). Merging this version bump triggers the
 existing signed-release workflow, so merge/release remains an owner gate.
 Release pipeline, package identity and
 signer continuity remain in [ADR 0006](docs/adr/0006-release-pipeline.md) and

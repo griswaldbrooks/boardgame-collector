@@ -2,6 +2,13 @@
 
 Date: 2026-08-15
 
+## Slug correction — 2026-09-29
+
+The group’s real slug is `boardgamenightwg`; `bgn-wg` was wrong and never
+publicly resolvable. Operational links below are corrected; historical spec
+references remain as recorded. See the [ADR 0010 amendment](0010-private-meeple-handoff.md#public-group-slug-correction--2026-09-29)
+for evidence, preserved logical keys, and the frozen design-spec divergence.
+
 ## Status
 
 Extended by [ADR 0010](0010-private-meeple-handoff.md): saving/capture and
@@ -32,7 +39,7 @@ non-business Google Groups, you can use the Google Groups web interface"), and
 the spec's credentials are unobtainable for a consumer account — no domain, no
 admin console to delegate from. The only member-add paths that exist are
 joiner self-service (the web join link, or the
-`bgn-wg+subscribe@googlegroups.com` email command) and an owner manually
+`boardgamenightwg+subscribe@googlegroups.com` email command) and an owner manually
 adding/inviting in the Google Groups web UI — throttled in practice and
 without any programmatic surface.
 
@@ -44,8 +51,8 @@ Full evidence: the firstmate scout report for task
 v1 uses the self-serve join link:
 
 - Submitting an add composes a message containing the join link
-  `https://groups.google.com/g/bgn-wg/about` plus a one-line fallback
-  `mailto:bgn-wg+subscribe@googlegroups.com`, and hands it to the coordinator's
+  `https://groups.google.com/g/boardgamenightwg/about` plus a one-line fallback
+  `mailto:boardgamenightwg+subscribe@googlegroups.com`, and hands it to the coordinator's
   own apps: the device share sheet for a single add, one BCC'd email for a
   batch (recipients in BCC via a `mailto:` URI).
 - **The app never sends anything itself.** The coordinator's messaging app
@@ -64,7 +71,7 @@ v1 uses the self-serve join link:
 
 - **Gmail send-as the group address + Gmail API under coordinator OAuth** —
   the only mechanism that would literally send mail *from*
-  `bgn-wg@googlegroups.com`, at the price of OAuth backend work, one-time
+  `boardgamenightwg@googlegroups.com`, at the price of OAuth backend work, one-time
   owner setup, and Gmail sending limits. A plausible later upgrade if the
   coordinators ever want it; the joiner still self-confirms either way.
 - **Migrating the group** (Google Workspace, groups.io, Mailman) — would

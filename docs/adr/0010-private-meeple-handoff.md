@@ -25,9 +25,10 @@ HTTP proxy. Existing HTTP plugin scopes and browser CSP are not widened.
 
 POST JSON: `{version:1, key:<32 hex>, records:[...]}`; max 100 records / 128 KiB.
 Each record has `id` (64 lowercase hex) and `kind` (signup/contact). Signup:
-`email,name,source`; fixed group `bgn-wg` is server-owned. Contact:
-`name,email,phone,tag,notes`; no group or commands. Strings bounded to 2000 chars,
-name/source/tag to 200, email to 254, phone to 100. Unknown fields rejected.
+`email,name,source`; fixed group `bgn-wg` is server-owned — a wire key, not the
+public slug ([slug correction](#public-group-slug-correction--2026-09-29)).
+Contact: `name,email,phone,tag,notes`; no group or commands. Strings bounded to
+2000 chars, name/source/tag to 200, email to 254, phone to 100. Unknown fields rejected.
 Phone identity = SHA-256 of deterministic normalized semantic fields, independent
 of timestamps/order; identical captures intentionally collapse. This works for
 legacy records and restored files without destructive migration or a timestamp
@@ -108,3 +109,30 @@ Retention: phone outbox/history and host DB are not pruned automatically. Owner
 must protect/backup host directory; removal is a deliberate private filesystem
 operation, not an HTTP route. This slice does not sync host receipts into Android
 Downloads backups; after reinstall re-preview and server dedupe are the recovery.
+
+## Public group slug correction — 2026-09-29
+
+The group's real slug is `boardgamenightwg`; `bgn-wg` was wrong and never
+publicly resolvable. Signed-out checks supplied with the correction on
+2026-09-29 found the old About URL redirected to Google's access-error page,
+while [the public About page](https://groups.google.com/g/boardgamenightwg/about)
+showed `boardgamenightwg@googlegroups.com` and linked to boardgamenightwg.com.
+The subscribe address is `boardgamenightwg+subscribe@googlegroups.com`; the
+[owner members page](https://groups.google.com/g/boardgamenightwg/members)
+uses the same corrected slug. App labels, share text, mailto targets, and
+receiver-generated navigation instructions now use that public identity.
+Historical references in ADR 0002 describe the mistaken original spec, not
+working addresses. `Coordinator App.dc.html` and `docs/design-reference.md`
+are captain-owned frozen spec files and remain byte-exact; this amendment
+records why the implementation diverges from their old slug and addresses.
+
+The receiver's `GROUP = 'bgn-wg'` is deliberately unchanged: it participates
+in persisted `signup:<group>:<email>` membership/deduplication targets and the
+processor job JSON `group` field. It is a logical key, not a URL or display
+name. The intake app sends no group field; the receiver owns the fixed key
+and rejects caller-supplied group fields. On-device queue, contact, outbox,
+backup, and identity formats are unchanged, requiring no migration. Renaming
+that internal key would require a coordinated receiver redeploy and persisted
+identity migration, outside this correction. No deployed receiver on skypad
+was touched or assumed redeployed; the corrected receiver instruction text
+in this repository takes effect only on a separately authorized deployment.

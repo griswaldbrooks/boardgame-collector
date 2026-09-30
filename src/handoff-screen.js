@@ -144,7 +144,7 @@ export function handoffScreen({
               "strong",
               {},
               r.kind === "signup"
-                ? "Mailing signup · bgn-wg"
+                ? "Mailing signup · boardgamenightwg"
                 : "Private contact · never enroll",
             ),
             ...Object.entries(r)

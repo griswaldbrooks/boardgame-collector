@@ -46,6 +46,10 @@ function input(window, selector, value) {
 test("single signup offers manual capture and join link, not unavailable automation", async () => {
   const window = setup();
   go("add");
+  assert.equal(
+    globalThis.document.querySelector(".explain-addr").textContent,
+    "boardgamenightwg",
+  );
   noAgentOffer();
   assert.equal(button("Enter an email").disabled, true);
   assert.equal(button("Enter an email to share the join link").disabled, true);
@@ -53,6 +57,11 @@ test("single signup offers manual capture and join link, not unavailable automat
   button("Or send them the self-serve join link").click();
   await tick();
   assert.match(window.location.href, /^mailto:synthetic%40example.org\?/);
+  assert.ok(
+    decodeURIComponent(window.location.href).includes(
+      "https://groups.google.com/g/boardgamenightwg/about",
+    ),
+  );
   assert.deepEqual(pendingAddresses(), []);
   button("Add to the list").click();
   assert.deepEqual(pendingAddresses(), ["synthetic@example.org"]);
