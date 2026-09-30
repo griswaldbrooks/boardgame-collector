@@ -1,6 +1,7 @@
 # 12. Private signup reconciliation ledger and timestamp feedback
 
-Status: proposed implementation; no production activation or release.
+Status: accepted for repository integration (captain decision, 2026-09-29);
+production activation is separate.
 
 ## Decision and scope
 
@@ -15,7 +16,7 @@ to automatically re-add someone who may have unsubscribed.
 
 Contacts remain private contacts, never enrolled. No automatic invitations,
 Google adapter, selectors, credentials, grants, cron or deployment. A follow-up
-release-preparation bump to v0.3.6 is included for owner review (ADR 0006);
+release-preparation bump to v0.3.8 is included for owner review (ADR 0006);
 prepared is not released and does not prove live Google membership changes.
 Actual processing remains the existing human-gated Hermes path. The desired
 hybrid scripted browser worker + Meeple exceptions is a remaining live-UI gate:

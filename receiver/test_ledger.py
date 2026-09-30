@@ -1,4 +1,5 @@
 """Only synthetic local evidence, never live Google membership verification."""
+import argparse
 import json
 from pathlib import Path
 import sqlite3
@@ -147,6 +148,15 @@ class LedgerTests(unittest.TestCase):
         with self.assertRaises(FileExistsError):
             self.store.export(link)
 
+    def test_addition_timestamp_rejects_invalid_timezone_offsets(self):
+        for value in ['2020-01-02T03:04:05+00:99',
+                      '2020-01-02T03:04:05-01:60',
+                      '2020-01-02T03:04:05+24:00']:
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                m.added_timestamp(value)
+        self.assertEqual(m.added_timestamp('2020-01-02T04:34:05+01:30'), 1577934245)
+        self.assertEqual(m.added_timestamp('2020-01-02T01:34:05-01:30'), 1577934245)
+
     def test_cli_delayed_confirmation_export_and_consistent_backup(self):
         job = self.intake()
         evidence = self.root / 'evidence.txt'; evidence.write_text('Synthetic delayed confirmation only')
@@ -158,7 +168,9 @@ class LedgerTests(unittest.TestCase):
         item = self.store.read(job)['items'][0]
         self.assertEqual(item['added_at'], 1577934245)
         self.assertGreater(item['verified_at'], item['added_at'])
-        for invalid in ['2020-01-02', '2020-01-02T03:04:05', 'not-a-date']:
+        for invalid in ['2020-01-02', '2020-01-02T03:04:05', 'not-a-date',
+                        '2020-01-02T03:04:05+00:99', '2020-01-02T03:04:05-01:60',
+                        '2020-01-02T03:04:05+24:00']:
             self.assertNotEqual(cli('set', job, '1' * 64, 'added', '--evidence-file', evidence, '--added-at', invalid).returncode, 0)
         out = self.root / 'export.json'
         self.assertEqual(cli('export', '--output', out).returncode, 0)

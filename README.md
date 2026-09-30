@@ -182,7 +182,7 @@ The native command independently pins the explicitly approved exact origin in ap
 config, allows only bounded intake/status requests, verifies TLS and follows no
 redirects. Existing general HTTP plugin capabilities are not widened to `.ts.net`.
 Since v0.3.2, the installed app accepts runtime-approved HTTPS `*.ts.net` origins;
-receiver activation does not require v0.3.6. The new date display does.
+receiver activation does not require v0.3.8. The new date display does.
 No secrets or production hostnames are bundled. A user may reapprove an old exact
 endpoint to read its historical receipts; it cannot reroute a pending batch.
 
@@ -195,8 +195,8 @@ these gates are satisfied. No model/provider/profile grants are changed here.
 
 ## Packaging and design
 
-Latest published release checked for this PR: **v0.3.5**. Version **0.3.6**
-is prepared, not released; see [release notes](docs/releases/v0.3.6.md). Merging
+Version **0.3.8** adds the private signup ledger and receipt dates; see
+[release notes](docs/releases/v0.3.8.md). Merging
 this version bump triggers the existing signed-release workflow, so merge/release
 remains an owner gate.
 Release pipeline, package identity and

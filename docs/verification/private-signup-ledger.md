@@ -1,10 +1,32 @@
 # Private signup ledger: local verification
 
+The evidence below was reported by the original contributor for PR #24.
+Its original 0.3.6 preparation was superseded by 0.3.8 during integration;
+these historical checks are not a claim of deployment or current validation.
+
 Baseline: upstream `11a2f80b9d920eda6b94a0dda440c0062261e696`.
 Contract: [ADR 0012](../adr/0012-private-signup-ledger.md). This is a PR-only
 change, not a deployed service or APK release.
 
-## Evidence and behavior
+## Integration checks (2026-09-29)
+
+The successor preserves both commits by Meeple Bot from #24; #25's separate
+worker commits are excluded. Version/config/release notes are reconciled to
+0.3.8. No deployed receiver or member database was accessed.
+
+- Fixed invalid timezone offsets being normalized by Python's ISO parser;
+  the regression failed for `+00:99` and `-01:60` before the fix and passed
+  afterward, including valid positive/negative offset conversion.
+- `npm test`: 186 passed. `python3 -m unittest discover -s receiver -v`:
+  17 passed. All fixtures in the diff use synthetic addresses.
+- `npm run lint`, `npm run format:check`, `npm run build`, and
+  `git diff --check`: passed.
+- `cargo check --target aarch64-linux-android` with the documented NDK PATH:
+  passed. No APK or physical-device test was performed.
+- The no-mistakes pipeline is a subsequent delivery stage; these checks do
+  not claim its review or successor PR CI has completed.
+
+## Original contributor evidence and behavior
 
 - Extended the existing receiver SQLite store: nullable transactional migration,
   immutable first job/record/membership receipt times, separate explicit actual
@@ -77,8 +99,7 @@ Members page, and reports no native browser window. There is no implemented
 hybrid browser worker. Processing remains the existing explicitly human-gated
 Hermes path until an authorized owner UI can be observed and separately tested.
 No invites, Google changes, cron, new secrets, runtime grants, Serve mappings,
-production activation, APK, merge, deploy or release occurred. Version **0.3.6**
-is prepared for owner review, not released; no live Google add is proven.
+production activation, APK, merge, deploy or release occurred. The original **0.3.6** preparation is superseded by **0.3.8**; no live Google add is proven.
 The deployment staging source/config is private and separate from this repo.
 
 This ledger is not a full/current membership roster or a safe broadcast source;

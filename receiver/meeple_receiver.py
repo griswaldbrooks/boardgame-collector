@@ -215,7 +215,7 @@ def private_output(path):
 
 
 def added_timestamp(value):
-    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-]\d{2}:\d{2})', value):
+    if not re.fullmatch(r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)', value):
         raise argparse.ArgumentTypeError('Use RFC3339 with seconds and timezone, e.g. 2020-01-02T03:04:05Z')
     try:
         return int(datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp())
