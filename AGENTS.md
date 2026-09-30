@@ -84,6 +84,12 @@ The public Google Group slug and the receiver’s persisted logical group key
 are intentionally different; preserve the compatibility boundary documented in
 [ADR 0010’s slug correction](docs/adr/0010-private-meeple-handoff.md#public-group-slug-correction--2026-09-29).
 
+The private receiver's signup reconciliation ledger and timestamp contract live
+in `docs/adr/0012-private-signup-ledger.md`; receiver checks use
+`python3 -m unittest discover -s receiver -v`.
+Receiver deployment is separate from the APK release: stop old writers and
+back up the private SQLite store before migrating; legacy dates stay unknown.
+
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).
