@@ -210,7 +210,7 @@ class Store:
 def private_output(path):
     # Exclusive creation also rejects symlinks; parent directory is operator-owned.
     resolved = Path(path).resolve()
-    if resolved == REPO or REPO in resolved.parents:
+    if (REPO / '.git').exists() and (resolved == REPO or REPO in resolved.parents):
         raise ValueError('Member data must not be written inside the public repository')
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:

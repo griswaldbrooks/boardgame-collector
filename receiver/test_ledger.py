@@ -174,6 +174,27 @@ class LedgerTests(unittest.TestCase):
         self.store.export(outside)
         self.assertIn('memberships', json.loads(outside.read_text()))
 
+    def test_guard_follows_an_actual_checkout_not_the_install_directory(self):
+        for name, marker in [('standalone', None), ('checkout', 'gitdir: /elsewhere/.git/worktrees/w\n')]:
+            tree = Path(self.tmp.name) / name
+            (tree / 'receiver').mkdir(parents=True)
+            script = tree / 'receiver' / 'meeple_receiver.py'
+            script.write_bytes(Path(m.__file__).read_bytes())
+            if marker is not None:
+                (tree / '.git').write_text(marker)
+            data, out, backup = tree / 'private', tree / 'private' / 'ledger.json', tree / 'private' / 'intake-backup.sqlite3'
+            def cli(*args):
+                return subprocess.run([sys.executable, str(script), '--data', str(data), *map(str, args)], capture_output=True, text=True)
+            with self.subTest(tree=name):
+                results = [cli('export', '--output', out), cli('backup', '--output', backup)]
+                if marker is None:
+                    self.assertEqual([r.returncode for r in results], [0, 0], [r.stderr for r in results])
+                    self.assertIn('memberships', json.loads(out.read_text()))
+                    self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+                else:
+                    self.assertTrue(all(r.returncode for r in results), [r.stdout for r in results])
+                    self.assertFalse(out.exists() or backup.exists())
+
     def test_store_opens_without_a_write_lock_once_the_schema_is_current(self):
         holder = sqlite3.connect(self.store.db, timeout=1)
         self.addCleanup(holder.close)

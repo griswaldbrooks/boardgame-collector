@@ -18,7 +18,7 @@ worker commits are excluded. Version/config/release notes are reconciled to
   the regression failed for `+00:99` and `-01:60` before the fix and passed
   afterward, including valid positive/negative offset conversion.
 - `npm test`: 186 passed. `python3 -m unittest discover -s receiver -v`:
-  17 passed. All fixtures in the diff use synthetic addresses.
+  22 passed. All fixtures in the diff use synthetic addresses.
 - `npm run lint`, `npm run format:check`, `npm run build`, and
   `git diff --check`: passed.
 - `cargo check --target aarch64-linux-android` with the documented NDK PATH:

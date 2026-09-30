@@ -66,10 +66,13 @@ outcome audit. No contact export or HTTP listing is added. Local `backup --outpu
 FILE` uses SQLite's backup API for a consistent mode-0600 copy of the existing
 whole database (including contacts); protect it as PII, outside source/public
 folders. Neither command overwrites an existing file/symlink, and both reject an
-output path that resolves inside this public repository working tree: the
-never-commit-member-data rule is enforced at the write boundary rather than left
-to operator discipline. The owner still protects the parent directory, which the
-enforcement cannot choose. No automated retention or second live store.
+`--output` resolving inside this repository working tree when the receiver runs
+from a checkout: for those two outputs the never-commit-member-data rule is
+enforced at the write boundary rather than left to operator discipline. That
+enforcement covers nothing else — `--data` placement, the processor's job files
+under it, and the parent directory remain the owner's responsibility, and a
+receiver installed outside a checkout is unaffected. No automated retention or
+second live store.
 
 ## Acceptance / evidence
 
