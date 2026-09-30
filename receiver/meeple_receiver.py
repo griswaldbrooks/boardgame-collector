@@ -19,6 +19,20 @@ RECORD = re.compile(r'[a-f0-9]{64}')
 OUTCOMES = {'added', 'already_member', 'invitation_required', 'blocked', 'needs_verification'}
 # Persisted membership identity and processor wire key; not the public slug (ADR 0010).
 GROUP = 'bgn-wg'
+REPO = Path(__file__).resolve().parent.parent
+# Nullable migration: old updated/audit values cannot prove receipt or add dates.
+MIGRATIONS = {
+    'jobs': {'received_at': 'INTEGER'},
+    'records': {'received_at': 'INTEGER'},
+    'outcomes': {'received_at': 'INTEGER', 'added_at': 'INTEGER', 'verified_at': 'INTEGER'},
+    'audit': {'added_at': 'INTEGER', 'verified_at': 'INTEGER', 'job': 'TEXT', 'record': 'TEXT'},
+}
+
+
+def missing_columns(db):
+    return [(table, column, kind) for table, columns in MIGRATIONS.items()
+            for column, kind in columns.items()
+            if column not in {r['name'] for r in db.execute(f'PRAGMA table_info({table})')}]
 
 
 def canonical(value):
@@ -77,18 +91,10 @@ class Store:
                 CREATE TABLE IF NOT EXISTS outcomes (owner TEXT, target TEXT, status TEXT, evidence TEXT, updated INTEGER, PRIMARY KEY(owner,target));
                 CREATE TABLE IF NOT EXISTS audit (owner TEXT, target TEXT, status TEXT, evidence TEXT, updated INTEGER);
             ''')
-            # Nullable migration: old updated/audit values cannot prove receipt or add dates.
-            db.execute('BEGIN IMMEDIATE')
-            for table, columns in {
-                'jobs': {'received_at': 'INTEGER'},
-                'records': {'received_at': 'INTEGER'},
-                'outcomes': {'received_at': 'INTEGER', 'added_at': 'INTEGER', 'verified_at': 'INTEGER'},
-                'audit': {'added_at': 'INTEGER', 'verified_at': 'INTEGER', 'job': 'TEXT', 'record': 'TEXT'},
-            }.items():
-                existing = {r['name'] for r in db.execute(f'PRAGMA table_info({table})')}
-                for column, kind in columns.items():
-                    if column not in existing:
-                        db.execute(f'ALTER TABLE {table} ADD COLUMN {column} {kind}')
+            if missing_columns(db):
+                db.execute('BEGIN IMMEDIATE')
+                for table, column, kind in missing_columns(db):
+                    db.execute(f'ALTER TABLE {table} ADD COLUMN {column} {kind}')
 
     @contextmanager
     def connect(self):
@@ -106,11 +112,11 @@ class Store:
         body = canonical(value)
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            previous = db.execute('SELECT id,body FROM jobs WHERE owner=? AND key=?', (owner, value['key'])).fetchone()
+            previous = db.execute('SELECT id,body,received_at FROM jobs WHERE owner=? AND key=?', (owner, value['key'])).fetchone()
             if previous:
                 if previous['body'] != body:
                     raise Conflict()
-                return previous['id'], False
+                return previous['id'], False, previous['received_at']
             job = uuid.uuid4().hex
             now = int(time.time())
             db.execute('INSERT INTO jobs (id,owner,key,body,received_at) VALUES (?,?,?,?,?)', (job, owner, value['key'], body, now))
@@ -124,7 +130,7 @@ class Store:
                 db.execute('INSERT INTO items VALUES (?,?,?)', (job, rec['id'], pos))
                 state = 'received' if rec['kind'] == 'signup' else 'stored_contact'
                 db.execute('INSERT OR IGNORE INTO outcomes (owner,target,status,evidence,updated,received_at) VALUES (?,?,?,?,?,?)', (owner, target, state, '', now, now))
-        return job, True
+        return job, True, now
 
     def list_jobs(self):
         with self.connect() as db:
@@ -203,6 +209,9 @@ class Store:
 @contextmanager
 def private_output(path):
     # Exclusive creation also rejects symlinks; parent directory is operator-owned.
+    resolved = Path(path).resolve()
+    if resolved == REPO or REPO in resolved.parents:
+        raise ValueError('Member data must not be written inside the public repository')
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     try:
         with os.fdopen(fd, 'w') as out:
@@ -277,8 +286,8 @@ def make_server(store, config_path):
                         value[k] = v
                     return value
                 value = json.loads(body, object_pairs_hook=unique)
-                job, created = store.intake(owners[0], value)
-                return self.reply(201 if created else 200, {'job': job, 'received_at': store.read(job, owners[0])['received_at']})
+                job, created, received_at = store.intake(owners[0], value)
+                return self.reply(201 if created else 200, {'job': job, 'received_at': received_at})
             except KeyError:
                 self.reply(404, {'error': 'Not found'})
             except Conflict:
@@ -340,7 +349,7 @@ def run_job(store, job, owner_session_ready=False, runner=subprocess.run):
             'Use receiver/meeple_receiver.py --data ' + json.dumps(str(store.root)) + ' set ' + job + ' ITEM STATUS --evidence-file FILE. '
             'Do not modify unrelated jobs, contacts, config, grants or profiles.'
         )
-        result = runner(['hermes', '--profile', 'meeple', 'chat', '--query-file', '-', '--max-turns', '40', '--run-budget', '600'], input=prompt, text=True, pass_fds=(lock.fileno(),), cwd=Path(__file__).resolve().parent.parent, timeout=660, check=False)
+        result = runner(['hermes', '--profile', 'meeple', 'chat', '--query-file', '-', '--max-turns', '40', '--run-budget', '600'], input=prompt, text=True, pass_fds=(lock.fileno(),), cwd=REPO, timeout=660, check=False)
         if result.returncode:
             raise RuntimeError('Processor interrupted; outcomes need verification')
         return 'invoked'
@@ -357,7 +366,7 @@ def main():
     put.add_argument('--added-at', type=added_timestamp, help='Known actual addition time (RFC3339); omitted means unknown, never now')
     for name in ('export', 'backup'):
         command = sub.add_parser(name)
-        command.add_argument('--output', required=True, type=Path, help='New private file outside source/public folders; never overwritten')
+        command.add_argument('--output', required=True, type=Path, help='New private file outside the repository; never overwritten')
     run = sub.add_parser('run'); run.add_argument('job'); run.add_argument('--owner-session-ready', action='store_true')
     args = parser.parse_args()
     os.umask(0o077)

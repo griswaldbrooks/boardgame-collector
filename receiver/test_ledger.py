@@ -49,7 +49,7 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(view['items'][2]['added_at'], 175)
         self.assertEqual(view['items'][2]['verified_at'], 200)
         self.assertEqual(self.store.read(job)['received_at'], 100)
-        other, _ = self.store.intake('other@example.org', batch())
+        other, _, _ = self.store.intake('other@example.org', batch())
         self.assertIsNone(self.store.read(other)['items'][0]['added_at'])
         self.assertEqual(self.store.read(other)['items'][0]['status'], 'received')
 
@@ -157,6 +157,37 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(m.added_timestamp('2020-01-02T04:34:05+01:30'), 1577934245)
         self.assertEqual(m.added_timestamp('2020-01-02T01:34:05-01:30'), 1577934245)
 
+    def test_export_and_backup_refuse_to_write_inside_the_public_repository(self):
+        self.intake()
+        for name in ['ledger.json', 'receiver/ledger.json', 'docs/../ledger.json']:
+            target = m.REPO / name
+            self.addCleanup(target.unlink, missing_ok=True)
+            with self.subTest(name=name):
+                for write in (self.store.export, self.store.backup):
+                    with self.assertRaises(ValueError):
+                        write(target)
+                self.assertFalse(target.exists())
+        (self.root / 'repo-link').symlink_to(m.REPO)
+        with self.assertRaises(ValueError):
+            self.store.export(self.root / 'repo-link' / 'ledger.json')
+        outside = self.root / 'ledger.json'
+        self.store.export(outside)
+        self.assertIn('memberships', json.loads(outside.read_text()))
+
+    def test_store_opens_without_a_write_lock_once_the_schema_is_current(self):
+        holder = sqlite3.connect(self.store.db, timeout=1)
+        self.addCleanup(holder.close)
+        holder.execute('BEGIN IMMEDIATE')
+        reopened = m.Store(self.root)  # steady state must not need the write lock
+        self.assertEqual(reopened.list_jobs(), [])
+
+    def test_intake_reports_the_committed_receipt_time_for_create_and_replay(self):
+        job, created, received_at = self.store.intake(OWNER, batch())
+        self.assertTrue(created)
+        replayed, again, replayed_at = self.store.intake(OWNER, batch())
+        self.assertEqual((replayed, again, replayed_at), (job, False, received_at))
+        self.assertEqual(self.store.read(job)['received_at'], received_at)
+
     def test_cli_delayed_confirmation_export_and_consistent_backup(self):
         job = self.intake()
         evidence = self.root / 'evidence.txt'; evidence.write_text('Synthetic delayed confirmation only')
@@ -206,3 +237,11 @@ class LedgerHTTPTests(unittest.TestCase):
         self.assertIsNone(view['items'][1]['verified_at'])
         for path in ['/v1/ledger', '/v1/roster', '/v1/export']:
             self.assertEqual(self.request('GET', path)[0], 404)
+
+    def test_receipt_does_not_depend_on_a_second_read_of_the_created_job(self):
+        def unavailable(*args, **kwargs):
+            raise sqlite3.Error('status read unavailable')
+        with patch.object(m.time, 'time', return_value=100), patch.object(self.store, 'read', unavailable):
+            code, receipt = self.request()
+        self.assertEqual((code, receipt['received_at']), (201, 100))
+        self.assertEqual(self.store.read(receipt['job'], OWNER)['received_at'], 100)

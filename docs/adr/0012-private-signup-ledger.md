@@ -65,8 +65,11 @@ with grouped signup targets, original captures, submission references and comple
 outcome audit. No contact export or HTTP listing is added. Local `backup --output
 FILE` uses SQLite's backup API for a consistent mode-0600 copy of the existing
 whole database (including contacts); protect it as PII, outside source/public
-folders. Neither command overwrites an existing file/symlink. Owner protects the
-parent directory. No automated retention or second live store.
+folders. Neither command overwrites an existing file/symlink, and both reject an
+output path that resolves inside this public repository working tree: the
+never-commit-member-data rule is enforced at the write boundary rather than left
+to operator discipline. The owner still protects the parent directory, which the
+enforcement cannot choose. No automated retention or second live store.
 
 ## Acceptance / evidence
 

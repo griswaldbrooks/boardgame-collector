@@ -149,16 +149,17 @@ python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" set "$JOB" "$ITEM" blo
 # If an actual addition time is known, supply it explicitly (timezone required).
 # Omit --added-at if unknown; never substitute the later confirmation time.
 python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" set "$JOB" "$ITEM" added --evidence-file "$EVIDENCE" --added-at "$KNOWN_RFC3339_TIME"
-# Exclusive 0600 files; protect the parent directory and never put these in Git.
-python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" export --output "$NEW_PRIVATE_JSON"
-python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" backup --output "$NEW_PRIVATE_SQLITE"
+# Exclusive 0600 files; an output path inside this repository is rejected outright.
+python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" export --output "$PRIVATE_DIR/ledger-$(date -u +%Y%m%d).json"
+python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" backup --output "$PRIVATE_DIR/intake-$(date -u +%Y%m%d).sqlite3"
 ```
 
 The JSON export groups signup work by owner/group/normalized email and retains all
 original captures, names, sources, submission receipts and outcome/attempt audit.
 It excludes private contacts. The SQLite backup uses the backup API and includes
 the **whole** existing store (contacts too); both files are PII, not public reports.
-Neither output can overwrite a file or symlink. No HTTP roster/export route exists.
+Neither output can overwrite a file or symlink, and neither will write to a path
+resolving inside this repository. No HTTP roster/export route exists.
 Receipt replay never resets dates. Re-verification preserves a known addition
 date; a conflicting date is rejected, leaving prior evidence intact.
 
@@ -181,7 +182,7 @@ there is no arbitrary CORS or public result-mutation/agent-prompt endpoint.
 The native command independently pins the explicitly approved exact origin in app
 config, allows only bounded intake/status requests, verifies TLS and follows no
 redirects. Existing general HTTP plugin capabilities are not widened to `.ts.net`.
-Since v0.3.2, the installed app accepts runtime-approved HTTPS `*.ts.net` origins;
+Since v0.3.4, the installed app accepts runtime-approved HTTPS `*.ts.net` origins;
 receiver activation does not require v0.3.8. The new date display does.
 No secrets or production hostnames are bundled. A user may reapprove an old exact
 endpoint to read its historical receipts; it cannot reroute a pending batch.
