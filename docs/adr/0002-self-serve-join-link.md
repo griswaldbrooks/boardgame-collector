@@ -71,7 +71,7 @@ v1 uses the self-serve join link:
 
 - **Gmail send-as the group address + Gmail API under coordinator OAuth** —
   the only mechanism that would literally send mail *from*
-  `bgn-wg@googlegroups.com`, at the price of OAuth backend work, one-time
+  `boardgamenightwg@googlegroups.com`, at the price of OAuth backend work, one-time
   owner setup, and Gmail sending limits. A plausible later upgrade if the
   coordinators ever want it; the joiner still self-confirms either way.
 - **Migrating the group** (Google Workspace, groups.io, Mailman) — would
