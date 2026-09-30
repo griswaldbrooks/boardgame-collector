@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { isValidEmail, parseBatch, splitDraft } from "../src/parse.js";
 import {
   JOIN_LINK,
+  JOIN_MAIL,
+  MEMBERS_URL,
   LIST_MAIL,
   composeMessage,
   singleMailtoUri,
@@ -51,9 +53,16 @@ test("batch parse dedupes, first occurrence wins", () => {
 // The join link is the demoted secondary fallback (ADR 0005), so its
 // composer still carries the link and the subscribe fallback.
 test("join-link message carries the link and the subscribe fallback", () => {
+  assert.equal(JOIN_LINK, "https://groups.google.com/g/boardgamenightwg/about");
+  assert.equal(JOIN_MAIL, "boardgamenightwg+subscribe@googlegroups.com");
+  assert.equal(
+    MEMBERS_URL,
+    "https://groups.google.com/g/boardgamenightwg/members",
+  );
   const msg = composeMessage();
+  assert.ok(msg.includes("One-tap link to join boardgamenightwg:"));
   assert.ok(msg.includes(JOIN_LINK));
-  assert.ok(msg.includes("mailto:bgn-wg+subscribe@googlegroups.com"));
+  assert.ok(msg.includes("mailto:boardgamenightwg+subscribe@googlegroups.com"));
 });
 
 test("single mailto is addressed to the new member", () => {
@@ -88,6 +97,7 @@ test("broadcast mailto is addressed to the group with the edited content", () =>
     "Last night was a good one",
     "Thanks to the 38 of you.",
   );
+  assert.equal(LIST_MAIL, "boardgamenightwg@googlegroups.com");
   assert.ok(uri.startsWith(`mailto:${LIST_MAIL}?`));
   assert.ok(
     uri.includes(`subject=${encodeURIComponent("Last night was a good one")}`),

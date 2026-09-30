@@ -94,6 +94,10 @@ test("preview full fields, explicit selection, receipt distinct from added and r
   assert.match(globalThis.document.body.textContent, /Test source/);
   assert.equal(globalThis.document.querySelector("b"), null);
   assert.equal(btn("Select records to send").disabled, true);
+  assert.match(
+    globalThis.document.body.textContent,
+    /Mailing signup · boardgamenightwg/,
+  );
   const check = globalThis.document.querySelector('input[type="checkbox"]');
   check.checked = true;
   check.dispatchEvent(new globalThis.window.Event("change"));

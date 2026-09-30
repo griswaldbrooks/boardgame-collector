@@ -972,7 +972,7 @@ function oneMode() {
         "div",
         { class: "explain-body" },
         "Queues them on this device; you finish the add in ",
-        h("span", { class: "explain-addr" }, "bgn-wg"),
+        h("span", { class: "explain-addr" }, "boardgamenightwg"),
         "'s Google Groups page from home — they do nothing at the door.",
       ),
     ),

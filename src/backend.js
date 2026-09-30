@@ -12,8 +12,8 @@
 
 import { isValidEmail } from "./parse.js";
 
-export const JOIN_LINK = "https://groups.google.com/g/bgn-wg/about";
-export const JOIN_MAIL = "bgn-wg+subscribe@googlegroups.com";
+export const JOIN_LINK = "https://groups.google.com/g/boardgamenightwg/about";
+export const JOIN_MAIL = "boardgamenightwg+subscribe@googlegroups.com";
 // The club's public site (chapters, events, FAQ). Home's "Club website"
 // card is a plain external handoff — the same ACTION_VIEW pattern as the
 // members-page deep link; the app never embeds or writes to it.
@@ -26,15 +26,16 @@ export async function openWebsite() {
 // The group's owner UI — the drain screen's deep-link target and the ONLY
 // write path for adds: the coordinator is signed in there, the app just
 // opens the page.
-export const MEMBERS_URL = "https://groups.google.com/g/bgn-wg/members";
+export const MEMBERS_URL =
+  "https://groups.google.com/g/boardgamenightwg/members";
 // Mailing a Google Group's own address IS broadcasting to it, so Flow 2's
 // send mechanism is the same compose-and-hand-off pattern (ADR 0002):
 // compose a mailto and let the coordinator's own mail app do the sending.
-export const LIST_MAIL = "bgn-wg@googlegroups.com";
+export const LIST_MAIL = "boardgamenightwg@googlegroups.com";
 
 export function composeMessage() {
   return (
-    `One-tap link to join bgn-wg: ${JOIN_LINK}\n` +
+    `One-tap link to join boardgamenightwg: ${JOIN_LINK}\n` +
     `Or join by email: mailto:${JOIN_MAIL}`
   );
 }

@@ -136,6 +136,7 @@ class ReceiverTests(unittest.TestCase):
         _, receipt = self.request(data=b)
         def runner(*args, **kwargs):
             view = json.loads((self.root / 'jobs' / (receipt['job'] + '.json')).read_text())
+            self.assertEqual(view['group'], 'bgn-wg', 'Persisted processor key must remain compatible')
             self.assertEqual(len(view['items']), 1)
             class Result: returncode = 0
             return Result()
@@ -163,7 +164,10 @@ class ReceiverTests(unittest.TestCase):
             self.assertNotIn('$(touch', ' '.join(args))
             self.assertEqual(args[:6], ['hermes', '--profile', 'meeple', 'chat', '--query-file', '-'])
             self.assertIn('First inspect membership', kwargs['input'])
+            self.assertIn('Google Group is boardgamenightwg, https://groups.google.com/g/boardgamenightwg/members only.', kwargs['input'])
+            self.assertNotIn('bgn-wg', kwargs['input'])
             view = json.loads((self.root / 'jobs' / (receipt['job'] + '.json')).read_text())
+            self.assertEqual(view['group'], 'bgn-wg', 'Persisted processor key must remain compatible')
             self.assertEqual(len(view['items']), 1)
             self.assertEqual(set(view['items'][0]), {'id', 'email', 'status'})
             self.assertFalse(kwargs.get('shell', False))

@@ -80,6 +80,10 @@ every path now records one plain outcome string, revealed by tapping Home's
 version footer (`checkOutcome()`, ADR 0009) — silent failure was
 undiagnosable when the home IP's anonymous GitHub rate limit ran out.
 
+The public Google Group slug and the receiver’s persisted logical group key
+are intentionally different; preserve the compatibility boundary documented in
+[ADR 0010’s slug correction](docs/adr/0010-private-meeple-handoff.md#public-group-slug-correction--2026-09-29).
+
 ## Build
 
 - Frontend: `npm install && npm run build` (Vite, output in `dist/`).

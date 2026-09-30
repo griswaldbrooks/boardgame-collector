@@ -2,6 +2,13 @@
 
 Date: 2026-08-18
 
+## Slug correction — 2026-09-29
+
+The group’s real slug is `boardgamenightwg`; `bgn-wg` was wrong and never
+publicly resolvable. Operational links below are corrected; historical spec
+references remain as recorded. See the [ADR 0010 amendment](0010-private-meeple-handoff.md#public-group-slug-correction--2026-09-29)
+for evidence, preserved logical keys, and the frozen design-spec divergence.
+
 ## Status
 
 Extended by [ADR 0010](0010-private-meeple-handoff.md): saving/capture and
@@ -48,7 +55,7 @@ Flow 1 becomes capture-then-drain, and the app never sends or writes anything:
 - **Assisted drain.** A coordinator-facing drain screen (reachable from Home
   whenever the queue is non-empty) presents the queued addresses FIFO as a
   copy-ready paste block for Google Groups' owner Add members direct-add box,
-  with a deep link to `https://groups.google.com/g/bgn-wg/members`. The
+  with a deep link to `https://groups.google.com/g/boardgamenightwg/members`. The
   coordinator pastes and submits in Google's signed-in UI, then marks the
   batch drained in-app, which clears those queue entries — behind an
   on-screen confirm, because the queue is the only copy of those addresses
