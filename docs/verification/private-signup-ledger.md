@@ -99,7 +99,8 @@ Members page, and reports no native browser window. There is no implemented
 hybrid browser worker. Processing remains the existing explicitly human-gated
 Hermes path until an authorized owner UI can be observed and separately tested.
 No invites, Google changes, cron, new secrets, runtime grants, Serve mappings,
-production activation, APK, merge, deploy or release occurred. The original **0.3.6** preparation is superseded by **0.3.8**; no live Google add is proven.
+production activation, APK, merge, deploy or release occurred. The original
+**0.3.6** preparation is superseded by **0.3.8**; no live Google add is proven.
 The deployment staging source/config is private and separate from this repo.
 
 This ledger is not a full/current membership roster or a safe broadcast source;

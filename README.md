@@ -149,7 +149,7 @@ python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" set "$JOB" "$ITEM" blo
 # If an actual addition time is known, supply it explicitly (timezone required).
 # Omit --added-at if unknown; never substitute the later confirmation time.
 python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" set "$JOB" "$ITEM" added --evidence-file "$EVIDENCE" --added-at "$KNOWN_RFC3339_TIME"
-# Exclusive 0600 files; an output path inside this repository is rejected outright.
+# Exclusive 0600 files; run from a checkout, a path inside it is rejected outright.
 python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" export --output "$PRIVATE_DIR/ledger-$(date -u +%Y%m%d).json"
 python3 receiver/meeple_receiver.py --data "$PRIVATE_DIR" backup --output "$PRIVATE_DIR/intake-$(date -u +%Y%m%d).sqlite3"
 ```
@@ -158,8 +158,10 @@ The JSON export groups signup work by owner/group/normalized email and retains a
 original captures, names, sources, submission receipts and outcome/attempt audit.
 It excludes private contacts. The SQLite backup uses the backup API and includes
 the **whole** existing store (contacts too); both files are PII, not public reports.
-Neither output can overwrite a file or symlink, and neither will write to a path
-resolving inside this repository. No HTTP roster/export route exists.
+Neither output can overwrite a file or symlink, and when the receiver runs from a
+checkout neither will write to a path resolving inside it (scope in
+[ADR 0012](docs/adr/0012-private-signup-ledger.md)); an off-checkout install keeps
+the parent directory the owner's responsibility. No HTTP roster/export route exists.
 Receipt replay never resets dates. Re-verification preserves a known addition
 date; a conflicting date is rejected, leaving prior evidence intact.
 
@@ -197,11 +199,10 @@ these gates are satisfied. No model/provider/profile grants are changed here.
 ## Packaging and design
 
 Version **0.3.8** adds the private signup ledger and receipt dates; see
-[release notes](docs/releases/v0.3.8.md). Merging
-this version bump triggers the existing signed-release workflow, so merge/release
-remains an owner gate.
-Release pipeline, package identity and
-signer continuity remain in [ADR 0006](docs/adr/0006-release-pipeline.md) and
+[release notes](docs/releases/v0.3.8.md). Merging this version bump triggers the
+existing signed-release workflow, so merge/release remains an owner gate.
+Release pipeline, package identity and signer continuity remain in
+[ADR 0006](docs/adr/0006-release-pipeline.md) and
 [ADR 0007](docs/adr/0007-in-app-self-updater.md). Never install a debug-signed APK
 over a kept user installation. See `AGENTS.md` for native build details; physical
 phone/Tailscale and same-signer update verification remain separate release gates.
